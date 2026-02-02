@@ -1,0 +1,15 @@
+{
+  "timestamp": 1769996804.8829122,
+  "data": {
+    "__dataclass__": "BitcoinPrice",
+    "data": {
+      "btc_to_vnd": {
+        "__decimal__": "1996753890.17"
+      },
+      "source": "CoinMarketCap",
+      "timestamp": {
+        "__datetime__": "2026-02-02T01:46:44.881542"
+      }
+    }
+  }
+}

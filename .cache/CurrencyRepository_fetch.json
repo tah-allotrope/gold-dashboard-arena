@@ -1,0 +1,15 @@
+{
+  "timestamp": 1769996804.5843966,
+  "data": {
+    "__dataclass__": "UsdVndRate",
+    "data": {
+      "sell_rate": {
+        "__decimal__": "24061.9"
+      },
+      "source": "EGCurrency",
+      "timestamp": {
+        "__datetime__": "2026-02-02T01:46:44.583116"
+      }
+    }
+  }
+}

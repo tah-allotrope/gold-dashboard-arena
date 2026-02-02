@@ -1,0 +1,18 @@
+{
+  "timestamp": 1769996806.4221826,
+  "data": {
+    "__dataclass__": "Vn30Index",
+    "data": {
+      "index_value": {
+        "__decimal__": "2029.81"
+      },
+      "source": "Vietstock",
+      "change_percent": {
+        "__decimal__": "0.00"
+      },
+      "timestamp": {
+        "__datetime__": "2026-02-02T01:46:46.420507"
+      }
+    }
+  }
+}

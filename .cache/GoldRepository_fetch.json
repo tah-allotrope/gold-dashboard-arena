@@ -1,0 +1,19 @@
+{
+  "timestamp": 1769996804.30956,
+  "data": {
+    "__dataclass__": "GoldPrice",
+    "data": {
+      "buy_price": {
+        "__decimal__": "82000000"
+      },
+      "sell_price": {
+        "__decimal__": "83500000"
+      },
+      "source": "24h.com.vn",
+      "unit": "VND/tael",
+      "timestamp": {
+        "__datetime__": "2026-02-02T01:46:44.308169"
+      }
+    }
+  }
+}

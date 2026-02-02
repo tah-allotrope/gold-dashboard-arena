@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import Optional, Tuple
 from decimal import Decimal
+import re
 
 from .base import Repository
 from models import Vn30Index
@@ -61,7 +62,6 @@ class StockRepository(Repository[Vn30Index]):
         Extract VN30 index value and percentage change from Vietstock HTML.
         
         The HTML contains text like: 'VN30-INDEX', '2,029.81', '10.83 (0.54%)'
-        Line structure: line N has 'VN30-INDEX', line N+1 has value, line N+2 has change.
         
         Returns:
             Tuple of (index_value, change_percent) or (None, None)
@@ -70,20 +70,27 @@ class StockRepository(Repository[Vn30Index]):
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         
         for i, line in enumerate(lines):
-            if line == 'VN30-INDEX':
-                if i + 1 < len(lines):
-                    index_value = sanitize_vn_number(lines[i + 1])
-                    
-                    change_percent = None
-                    if i + 2 < len(lines):
-                        change_line = lines[i + 2]
-                        if '(' in change_line and '%' in change_line:
-                            import re
-                            match = re.search(r'([-+]?\d+[.,]\d+)\s*\(', change_line)
-                            if match:
-                                change_percent = sanitize_vn_number(match.group(1))
-                    
-                    if index_value and index_value > 100 and index_value < 10000:
+            if 'VN30-INDEX' in line:
+                # Search in nearby lines
+                for j in range(i, min(len(lines), i + 5)):
+                    val = sanitize_vn_number(lines[j])
+                    if val and 500 < val < 5000:
+                        index_value = val
+
+                        # Look for change percentage in subsequent lines
+                        change_percent = None
+                        for k in range(j + 1, min(len(lines), j + 5)):
+                            if '%' in lines[k]:
+                                match = re.search(r'\(([-+]?\d+[.,]\d+)%\)', lines[k])
+                                if match:
+                                    change_percent = sanitize_vn_number(match.group(1))
+                                    break
+                                # Alternative: just any number followed by %
+                                match = re.search(r'([-+]?\d+[.,]\d+)%', lines[k])
+                                if match:
+                                    change_percent = sanitize_vn_number(match.group(1))
+                                    break
+
                         return (index_value, change_percent)
         
         return (None, None)

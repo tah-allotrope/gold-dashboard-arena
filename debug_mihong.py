@@ -21,11 +21,6 @@ def inspect_mihong():
     
     soup = BeautifulSoup(response.content, 'lxml')
     
-    # Save HTML for inspection
-    with open('.cache/mihong_debug.html', 'w', encoding='utf-8') as f:
-        f.write(response.text)
-    print("Saved HTML to .cache/mihong_debug.html")
-    
     # Inspect tables
     print("\n=== TABLES ===")
     tables = soup.find_all('table')
@@ -66,6 +61,4 @@ def inspect_mihong():
                 print(f"{marker}{j}: {lines[j]}")
 
 if __name__ == "__main__":
-    import os
-    os.makedirs('.cache', exist_ok=True)
     inspect_mihong()

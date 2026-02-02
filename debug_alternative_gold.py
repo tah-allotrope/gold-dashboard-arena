@@ -13,7 +13,7 @@ from utils import sanitize_vn_number
 SOURCES = {
     "PNJ": "https://www.pnj.com.vn/blog/gia-vang/",
     "DOJI": "https://www.doji.vn/gia-vang-hom-nay.html",
-    "SJC_MOBILE": "https://sjc.com.vn/xml/tygiavang.xml",
+    "24H": "https://www.24h.com.vn/gia-vang-hom-nay-c425.html",
 }
 
 def test_source(name, url):
@@ -29,12 +29,6 @@ def test_source(name, url):
         print(f"Status: {response.status_code}")
         print(f"Content-Type: {response.headers.get('Content-Type', 'unknown')}")
         print(f"Content length: {len(response.content)} bytes")
-        
-        # Save for inspection
-        filename = f".cache/{name.lower()}_debug.html"
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(response.text)
-        print(f"Saved to: {filename}")
         
         # Quick parse
         soup = BeautifulSoup(response.content, 'lxml')
@@ -66,8 +60,5 @@ def test_source(name, url):
         print(f"ERROR: {e}")
 
 if __name__ == "__main__":
-    import os
-    os.makedirs('.cache', exist_ok=True)
-    
     for name, url in SOURCES.items():
         test_source(name, url)

@@ -1,80 +1,36 @@
 """
-Analyze saved HTML files to identify parsing strategies.
+Generic HTML analyzer utility to inspect DOM structure of target URLs.
 """
+import requests
 from bs4 import BeautifulSoup
-import re
-from utils import sanitize_vn_number
+import sys
+from config import HEADERS, REQUEST_TIMEOUT
 
-def analyze_sjc():
-    print("\n=== Analyzing SJC HTML ===")
-    with open('.cache/sjc_20260201_220142.html', 'r', encoding='utf-8') as f:
-        html = f.read()
-    
-    soup = BeautifulSoup(html, 'lxml')
-    
-    tables = soup.find_all('table')
-    print(f"Found {len(tables)} tables")
-    
-    for i, table in enumerate(tables[:3]):
-        rows = table.find_all('tr')
-        print(f"\nTable {i} ({len(rows)} rows):")
-        for j, row in enumerate(rows[:5]):
-            cells = [td.get_text(strip=True) for td in row.find_all(['td', 'th'])]
-            if cells:
-                print(f"  Row {j}: {cells}")
+def analyze(url):
+    print(f"Analyzing {url}...")
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'lxml')
 
-def analyze_egcurrency():
-    print("\n=== Analyzing EGCurrency HTML ===")
-    with open('.cache/egcurrency_20260201_220147.html', 'r', encoding='utf-8') as f:
-        html = f.read()
-    
-    soup = BeautifulSoup(html, 'lxml')
-    
-    text = soup.get_text()
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    
-    for i, line in enumerate(lines):
-        if 'sell' in line.lower() or 'rate' in line.lower() or 'vnd' in line.lower():
-            context = lines[max(0, i-2):min(len(lines), i+3)]
-            print(f"Found potential rate context: {context}")
-            break
-    
-    numbers = re.findall(r'\d{1,3}(?:[.,]\d{3})+', text)
-    print(f"\nSample Vietnamese-formatted numbers: {numbers[:10]}")
+        print(f"Title: {soup.title.string if soup.title else 'N/A'}")
 
-def analyze_vietstock():
-    print("\n=== Analyzing Vietstock HTML ===")
-    with open('.cache/vietstock_20260201_220149.html', 'r', encoding='utf-8') as f:
-        html = f.read()
-    
-    soup = BeautifulSoup(html, 'lxml')
-    
-    text = soup.get_text()
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    
-    for i, line in enumerate(lines):
-        if 'vn30' in line.lower() and 'index' in line.lower():
-            context = lines[max(0, i-2):min(len(lines), i+5)]
-            print(f"Found VN30 context: {context}")
-            break
+        print("\n--- Tables ---")
+        tables = soup.find_all('table')
+        print(f"Found {len(tables)} tables")
+        for i, table in enumerate(tables):
+            print(f"Table {i}: id={table.get('id')}, class={table.get('class')}")
 
-def analyze_coinmarketcap():
-    print("\n=== Analyzing CoinMarketCap HTML ===")
-    with open('.cache/coinmarketcap_20260201_220151.html', 'r', encoding='utf-8') as f:
-        html = f.read()
-    
-    soup = BeautifulSoup(html, 'lxml')
-    
-    price_elements = soup.find_all(class_=re.compile(r'price', re.I))
-    print(f"Found {len(price_elements)} elements with 'price' in class")
-    
-    for elem in price_elements[:5]:
-        text = elem.get_text(strip=True)
-        if text and any(char.isdigit() for char in text):
-            print(f"  Price element: {text[:100]}")
+        print("\n--- Forms ---")
+        forms = soup.find_all('form')
+        for i, form in enumerate(forms):
+            print(f"Form {i}: action={form.get('action')}, method={form.get('method')}")
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    analyze_sjc()
-    analyze_egcurrency()
-    analyze_vietstock()
-    analyze_coinmarketcap()
+    if len(sys.argv) > 1:
+        analyze(sys.argv[1])
+    else:
+        print("Usage: python analyze_html.py <url>")

@@ -2,6 +2,7 @@
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
+<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 """
 Cryptocurrency repository for Vietnam Gold Dashboard.
 Fetches Bitcoin to VND conversion rate from CoinMarketCap.
@@ -71,6 +72,11 @@ class CryptoRepository(Repository[BitcoinPrice]):
 """
 Cryptocurrency repository for Vietnam Gold Dashboard.
 Fetches Bitcoin to VND conversion rate from CoinMarketCap.
+=======
+"""
+Cryptocurrency repository for Vietnam Gold Dashboard.
+Fetches Bitcoin to VND conversion rate from CoinMarketCap with CoinGecko fallback.
+>>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/crypto_repo.py
 =======
 """
 Cryptocurrency repository for Vietnam Gold Dashboard.
@@ -207,7 +213,10 @@ class CryptoRepository(Repository[BitcoinPrice]):
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
+<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/crypto_repo.py
 >>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-b41d3eed/repositories/crypto_repo.py
+=======
+>>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/crypto_repo.py
 =======
 >>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/crypto_repo.py
 =======

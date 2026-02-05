@@ -1,11 +1,6 @@
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
 """
 Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency.
+Fetches USD/VND black market rates from EGCurrency with fallback.
 """
 
 import requests
@@ -31,121 +26,9 @@ class CurrencyRepository(Repository[UsdVndRate]):
     @cached
     def fetch(self) -> UsdVndRate:
         """
-        Fetch current USD/VND black market rate.
-        
-        Returns:
-            UsdVndRate model with validated data
-            
-        Raises:
-            requests.exceptions.RequestException: If network request fails
-            ValueError: If data parsing fails
-        """
-        response = requests.get(
-            EGCURRENCY_URL,
-            headers=HEADERS,
-            timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'lxml')
-        
-        sell_rate = self._extract_sell_rate(soup)
-        
-        if not sell_rate:
-            raise ValueError("Failed to parse USD/VND sell rate from EGCurrency")
-        
-        return UsdVndRate(
-            sell_rate=sell_rate,
-            source="EGCurrency",
-            timestamp=datetime.now()
-        )
-    
-    def _extract_sell_rate(self, soup: BeautifulSoup) -> Optional[Decimal]:
-        """
-        Extract sell rate from EGCurrency HTML.
-        
-        Implementation to be refined in Phase 3 with actual HTML inspection.
-        Targets "Sell Price" text and applies Vietnamese number sanitization.
-        """
-        return None
-=======
-"""
-Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency.
-=======
-"""
-Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency with fallback.
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
-"""
-Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency with fallback.
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-"""
-=======
-"""
-Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency with fallback.
-"""
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
-"""
-Currency exchange repository for Vietnam Gold Dashboard.
-Fetches USD/VND black market rates from EGCurrency with fallback.
-"""
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-from typing import Optional
-from decimal import Decimal
-
-from .base import Repository
-from models import UsdVndRate
-from config import EGCURRENCY_URL, HEADERS, REQUEST_TIMEOUT
-from utils import cached, sanitize_vn_number
-
-
-class CurrencyRepository(Repository[UsdVndRate]):
-    """
-    Repository for USD/VND black market exchange rates.
-    
-    Source: EGCurrency black market page
-    Extracts the sell price for USD to VND conversion.
-    """
-    
-    @cached
-    def fetch(self) -> UsdVndRate:
-        """
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-        Fetch current USD/VND black market rate.
-        
-        Returns:
-            UsdVndRate model with validated data
-=======
         Fetch current USD/VND black market rate with fallback.
         
         Returns:
-=======
-        Fetch current USD/VND black market rate with fallback.
-        
-        Returns:
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
-        Fetch current USD/VND black market rate with fallback.
-        
-        Returns:
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
-        Fetch current USD/VND black market rate with fallback.
-        
-        Returns:
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
             UsdVndRate model with validated data or fallback approximate rate
         """
         try:
@@ -155,16 +38,6 @@ class CurrencyRepository(Repository[UsdVndRate]):
                 timeout=REQUEST_TIMEOUT
             )
             response.raise_for_status()
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
             
             soup = BeautifulSoup(response.content, 'lxml')
             sell_rate = self._extract_sell_rate(soup)
@@ -219,16 +92,3 @@ class CurrencyRepository(Repository[UsdVndRate]):
                 return rate
         
         return None
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/currency_repo.py
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-b41d3eed/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py
-=======
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-1468470e/repositories/currency_repo.py

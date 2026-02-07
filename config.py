@@ -27,15 +27,12 @@ EGCURRENCY_URL = "https://egcurrency.com/en/currency/USD-to-VND/blackMarket"
 DOJI_API_URL = "http://giavang.doji.vn/api/giavang/?api_key=258fbd2a72ce8481089d88c678e9fe4f"
 CHOGIA_AJAX_URL = "https://chogia.vn/wp-admin/admin-ajax.php"
 VIETSTOCK_URL = "https://banggia.vietstock.vn/bang-gia/vn30"
-<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/config.py
-=======
 CAFEF_URL = "https://s.cafef.vn/hastc/VN30-INDEX.chn"
 
 # Fallback APIs (international-friendly, work from any IP)
 OPEN_ER_API_URL = "https://open.er-api.com/v6/latest/USD"
 VPS_VN30_API_URL = "https://histdatafeed.vps.com.vn/tradingview/history?symbol=VN30&resolution=D"
 
->>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-8769c0a5/config.py
 COINMARKETCAP_BTC_VND_URL = "https://coinmarketcap.com/currencies/bitcoin/btc/vnd/"
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=vnd"
 

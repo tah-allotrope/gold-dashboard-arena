@@ -1,4 +1,5 @@
 <<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/stock_repo.py
+<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/stock_repo.py
 """
 Stock index repository for Vietnam Gold Dashboard.
 Fetches VN30 index data from Vietstock.
@@ -89,6 +90,8 @@ class StockRepository(Repository[Vn30Index]):
         
         return (None, None)
 =======
+=======
+>>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-b6dd527c/repositories/stock_repo.py
 """
 Stock index repository for Vietnam Gold Dashboard.
 Fetches VN30 index data from Vietstock.
@@ -297,4 +300,7 @@ class StockRepository(Repository[Vn30Index]):
                         return (index_value, change_percent)
         
         return (None, None)
+<<<<<<< C:/Users/tukum/Downloads/gold-dashboard-arena/repositories/stock_repo.py
 >>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-8769c0a5/repositories/stock_repo.py
+=======
+>>>>>>> C:/Users/tukum/.windsurf/worktrees/gold-dashboard-arena/gold-dashboard-arena-b6dd527c/repositories/stock_repo.py

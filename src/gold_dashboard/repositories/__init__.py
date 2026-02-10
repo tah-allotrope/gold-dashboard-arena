@@ -8,6 +8,7 @@ from .gold_repo import GoldRepository
 from .currency_repo import CurrencyRepository
 from .crypto_repo import CryptoRepository
 from .stock_repo import StockRepository
+from .history_repo import HistoryRepository
 
 __all__ = [
     'Repository',
@@ -15,4 +16,5 @@ __all__ = [
     'CurrencyRepository',
     'CryptoRepository',
     'StockRepository',
+    'HistoryRepository',
 ]

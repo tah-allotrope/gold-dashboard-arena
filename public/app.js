@@ -154,6 +154,47 @@ function updateVn30Card(data) {
     card.className = 'card ' + getFreshnessClass(data.timestamp);
 }
 
+// Update historical change badges for a card
+function updateHistoryBadges(containerId, changes) {
+    const container = document.getElementById(containerId);
+    if (!container || !changes) return;
+
+    let hasAnyData = false;
+
+    changes.forEach(change => {
+        const badge = container.querySelector(`[data-period="${change.period}"]`);
+        if (!badge) return;
+
+        const valueEl = badge.querySelector('.period-value');
+        if (!valueEl) return;
+
+        if (change.change_percent === null || change.change_percent === undefined) {
+            valueEl.textContent = 'N/A';
+            badge.className = 'history-badge badge-na';
+            return;
+        }
+
+        hasAnyData = true;
+        const pct = parseFloat(change.change_percent);
+        const sign = pct >= 0 ? '+' : '';
+        valueEl.textContent = `${sign}${formatVietnameseNumber(pct, 2)}%`;
+        badge.className = 'history-badge ' + (pct >= 0 ? 'badge-positive' : 'badge-negative');
+    });
+
+    // Show hint when no historical data is available yet
+    let hint = container.querySelector('.history-hint');
+    if (!hasAnyData) {
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'history-hint';
+            hint.textContent = 'Historical data accumulating...';
+            container.appendChild(hint);
+        }
+    } else if (hint) {
+        hint.remove();
+    }
+}
+
 // Update last update time in header
 function updateLastUpdateTime() {
     const now = new Date();
@@ -182,6 +223,14 @@ async function fetchData() {
         if (data.usd_vnd) updateUsdCard(data.usd_vnd);
         if (data.bitcoin) updateBtcCard(data.bitcoin);
         if (data.vn30) updateVn30Card(data.vn30);
+        
+        // Update historical change badges
+        if (data.history) {
+            if (data.history.gold) updateHistoryBadges('goldHistory', data.history.gold);
+            if (data.history.usd_vnd) updateHistoryBadges('usdHistory', data.history.usd_vnd);
+            if (data.history.bitcoin) updateHistoryBadges('btcHistory', data.history.bitcoin);
+            if (data.history.vn30) updateHistoryBadges('vn30History', data.history.vn30);
+        }
         
         updateLastUpdateTime();
         

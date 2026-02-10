@@ -6,7 +6,7 @@ All models use Decimal for financial data to avoid floating-point errors.
 from dataclasses import dataclass, field
 from decimal import Decimal
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 @dataclass
@@ -67,3 +67,19 @@ class DashboardData:
     usd_vnd: Optional[UsdVndRate] = None
     bitcoin: Optional[BitcoinPrice] = None
     vn30: Optional[Vn30Index] = None
+
+
+@dataclass
+class HistoricalChange:
+    """Model for a single period's value change (e.g., 1W, 1M)."""
+    period: str
+    old_value: Optional[Decimal] = None
+    new_value: Optional[Decimal] = None
+    change_percent: Optional[Decimal] = None
+
+
+@dataclass
+class AssetHistoricalData:
+    """Aggregated historical changes for a single asset across all periods."""
+    asset_name: str
+    changes: List[HistoricalChange] = field(default_factory=list)

@@ -9,9 +9,9 @@ from rich.panel import Panel
 from rich.text import Text
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Dict
 
-from .models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index
+from .models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, AssetHistoricalData
 
 
 def format_vn_number(value: Decimal, decimal_places: int = 0) -> str:
@@ -154,18 +154,77 @@ def create_dashboard_table(data: DashboardData) -> Table:
     return table
 
 
-def create_dashboard_panel(data: DashboardData, next_refresh_seconds: int = 600) -> Panel:
+def _format_change(percent: Optional[Decimal]) -> Text:
+    """Format a percentage change with color and sign prefix."""
+    if percent is None:
+        return Text("--", style="dim")
+    sign = "+" if percent >= 0 else ""
+    color = "green" if percent >= 0 else "red"
+    return Text(f"{sign}{format_vn_number(percent, 2)}%", style=color)
+
+
+ASSET_LABELS = {
+    "gold": "\U0001f7e1 Gold",
+    "usd_vnd": "\U0001f4b5 USD/VND",
+    "bitcoin": "\u20bf Bitcoin",
+    "vn30": "\U0001f4c8 VN30",
+}
+
+
+def create_history_table(history: Dict[str, AssetHistoricalData]) -> Table:
     """
-    Create a Rich Panel containing the dashboard table and footer.
+    Generate a Rich Table showing 1W/1M/1Y/3Y percentage changes per asset.
+
+    Green = positive change, Red = negative change, -- = data unavailable.
+    """
+    table = Table(title="Historical Changes", title_style="bold magenta")
+
+    table.add_column("Asset", style="bold", width=16)
+    table.add_column("1W", justify="right", width=12)
+    table.add_column("1M", justify="right", width=12)
+    table.add_column("1Y", justify="right", width=12)
+    table.add_column("3Y", justify="right", width=12)
+
+    period_order = ["1W", "1M", "1Y", "3Y"]
+
+    for asset_key in ["gold", "usd_vnd", "bitcoin", "vn30"]:
+        asset_data = history.get(asset_key)
+        label = ASSET_LABELS.get(asset_key, asset_key)
+
+        if asset_data is None:
+            table.add_row(label, *[Text("--", style="dim") for _ in period_order])
+            continue
+
+        change_map = {c.period: c.change_percent for c in asset_data.changes}
+        cells = [_format_change(change_map.get(p)) for p in period_order]
+        table.add_row(label, *cells)
+
+    return table
+
+
+def create_dashboard_panel(
+    data: DashboardData,
+    next_refresh_seconds: int = 600,
+    history: Optional[Dict[str, AssetHistoricalData]] = None,
+) -> Panel:
+    """
+    Create a Rich Panel containing the dashboard table, history table, and footer.
     """
     table = create_dashboard_table(data)
-    
+
+    parts = [table]
+
+    if history:
+        parts.append(Text(""))  # spacer
+        parts.append(create_history_table(history))
+
     minutes = next_refresh_seconds // 60
     seconds = next_refresh_seconds % 60
     footer_text = f"\nNext refresh in: {minutes}:{seconds:02d} | Press Ctrl+C to exit"
-    
+    parts.append(Text(footer_text, style="dim italic"))
+
     return Panel(
-        Text.assemble(table, Text(footer_text, style="dim italic")),
+        Text.assemble(*parts),
         title="Vietnam Gold Dashboard",
         border_style="cyan"
     )

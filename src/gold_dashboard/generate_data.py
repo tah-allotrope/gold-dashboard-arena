@@ -10,8 +10,9 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository
-from .models import DashboardData
+from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, HistoryRepository
+from .models import DashboardData, AssetHistoricalData
+from .history_store import record_snapshot
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
@@ -102,6 +103,34 @@ def serialize_data(data: DashboardData) -> dict:
     return result
 
 
+def _record_current_snapshots(data: DashboardData) -> None:
+    """Persist today's values into the local history store."""
+    if data.gold:
+        record_snapshot("gold", data.gold.sell_price)
+    if data.usd_vnd:
+        record_snapshot("usd_vnd", data.usd_vnd.sell_rate)
+    if data.bitcoin:
+        record_snapshot("bitcoin", data.bitcoin.btc_to_vnd)
+    if data.vn30:
+        record_snapshot("vn30", data.vn30.index_value)
+
+
+def _serialize_history(history: dict) -> dict:
+    """Convert AssetHistoricalData dict to JSON-serializable format."""
+    result = {}
+    for asset_key, asset_data in history.items():
+        changes = []
+        for c in asset_data.changes:
+            changes.append({
+                'period': c.period,
+                'old_value': float(c.old_value) if c.old_value is not None else None,
+                'new_value': float(c.new_value) if c.new_value is not None else None,
+                'change_percent': float(c.change_percent) if c.change_percent is not None else None,
+            })
+        result[asset_key] = changes
+    return result
+
+
 def main():
     """Main function to generate data.json."""
     print("=" * 60)
@@ -112,8 +141,23 @@ def main():
     # Fetch data
     data = fetch_all_data()
     
+    # Record current values into local history store for future lookups
+    _record_current_snapshots(data)
+    
+    # Fetch historical changes (external APIs + local store)
+    history = {}
+    try:
+        history = HistoryRepository().fetch_changes(data)
+        print("✓ Historical changes fetched")
+    except Exception as e:
+        print(f"⚠ Historical changes fetch failed: {e}")
+    
     # Serialize to dictionary
     json_data = serialize_data(data)
+    
+    # Add historical changes to output
+    if history:
+        json_data['history'] = _serialize_history(history)
     
     # Ensure public directory exists (relative to project root, not package)
     project_root = Path(__file__).resolve().parent.parent.parent

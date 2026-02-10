@@ -36,6 +36,12 @@ VPS_VN30_API_URL = "https://histdatafeed.vps.com.vn/tradingview/history?symbol=V
 COINMARKETCAP_BTC_VND_URL = "https://coinmarketcap.com/currencies/bitcoin/btc/vnd/"
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=vnd"
 
+# Historical data APIs
+COINGECKO_MARKET_CHART_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=vnd"
+
+# Period label -> number of days for historical lookups
+HISTORY_PERIODS = {"1W": 7, "1M": 30, "1Y": 365, "3Y": 1095}
+
 REQUEST_TIMEOUT = 10
 
 CACHE_DIR = ".cache"

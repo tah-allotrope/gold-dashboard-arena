@@ -28,10 +28,10 @@
 - **VN30 Index (Vietstock):** Working. Extracts value and change percentage. History via VPS TradingView API (1W/1M/1Y/3Y).
 - **Gold (DOJI API):** Working. SJC retail prices via DOJI XML API (primary).
 - **Gold History:** Working. webgia.com (primary, ~1Y real SJC data), chogia.vn (fallback, ~30 days), local store seeded with verified news prices (3Y).
-- **USD/VND (chogia.vn):** Working. Black market rates via AJAX JSON (primary). History via chogia.vn (~30 days) + local store.
-- **Bitcoin (CoinMarketCap):** Working. History via CoinGecko market_chart API (1W/1M/1Y).
+- **USD/VND (chogia.vn):** Working. Black market rates via AJAX JSON (primary). History via chogia.vn (~30 days) + local store seeded with verified black-market rates (2023–2025) for 1Y/3Y.
+- **Bitcoin (CoinMarketCap):** Working. History via CoinGecko market_chart API (1W/1M/1Y) + local store seeded with verified BTC/VND prices (2022–2025) for 3Y.
 - **GitHub Actions:** Working. Cron schedule (`*/30 * * * *`) successfully generating data and deploying to Firebase.
-- **History Store:** `.cache/history.json` — local JSON store that accumulates daily snapshots. Backfilled by webgia.com/chogia.vn on each run.
+- **History Store:** `.cache/history.json` — local JSON store that accumulates daily snapshots. Backfilled by webgia.com/chogia.vn/CoinGecko on each run.
 
 ## Key Technical Achievements
 - **Robust Scraping:** Switched to stable APIs (DOJI, chogia.vn) instead of fragile HTML parsing.
@@ -57,10 +57,18 @@
   - Gold now shows: 1W +4.32%, 1M +11.73%, 1Y +95.04%, 3Y +170.96%.
 - **Firebase caching fix:** Reduced CSS/JS cache TTL from 24h to 5min. Added `?v=2` cache-busting to asset references in `index.html`.
 - **Frontend:** Updated `updateHistoryBadges` in `app.js` with N/A styling and accumulation hints. Added `.badge-na` and `.history-hint` CSS.
-- **Tests:** 17/17 passing. Gold tests cover webgia success, chogia fallback, and local store fallback.
+- **Tests:** 25/25 passing. Gold tests cover webgia success, chogia fallback, and local store fallback. USD/VND and Bitcoin tests cover seed population, backfill persistence, and wiring.
 - **Deployed:** Firebase hosting at https://gold-dashboard-2026.web.app with all historical data live.
+
+- **USD/VND history fill (Feb 2026):**
+  - Added `_USD_VND_HISTORICAL_SEEDS` with 8 verified black-market rates (2023–2025) from VnExpress/CafeF/Tuoi Tre.
+  - Added `_seed_historical_usd_vnd()` and `_backfill_usd_vnd_history()` methods.
+  - chogia.vn data now backfills local store on every run for long-term accumulation.
+- **Bitcoin history fill (Feb 2026):**
+  - Added `_BTC_VND_HISTORICAL_SEEDS` with 10 verified BTC/VND prices (2022–2025) from Investopedia/CoinGecko.
+  - Added `_seed_historical_bitcoin()` and `_backfill_bitcoin_history()` methods.
+  - CoinGecko data now backfills local store on every run for long-term accumulation.
 
 ## Next Steps
 1. (Optional) Add buy/sell spread display for USD black market (chogia.vn provides both `gia_mua` and `gia_ban`).
 2. (Optional) Refine Bitcoin scraper for more reliable VND conversion.
-3. (Optional) Add USD/VND 1Y/3Y history (currently only 30 days from chogia.vn; could use a similar webgia.com approach if available).

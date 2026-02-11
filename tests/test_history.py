@@ -28,7 +28,12 @@ from gold_dashboard.models import (
     UsdVndRate,
     Vn30Index,
 )
-from gold_dashboard.repositories.history_repo import HistoryRepository, _compute_change_percent
+from gold_dashboard.repositories.history_repo import (
+    HistoryRepository,
+    _compute_change_percent,
+    _USD_VND_HISTORICAL_SEEDS,
+    _BTC_VND_HISTORICAL_SEEDS,
+)
 
 
 class TestComputeChangePercent(unittest.TestCase):
@@ -338,6 +343,122 @@ class TestHistoryRepository(unittest.TestCase):
         self.assertEqual(result.asset_name, "vn30")
         has_data = any(c.change_percent is not None for c in result.changes)
         self.assertTrue(has_data)
+
+
+class TestUsdVndSeeds(unittest.TestCase):
+    """Test USD/VND historical seed and backfill methods."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        )
+        self._tmp.close()
+        self._patch = patch(
+            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
+        )
+        self._patch.start()
+
+    def tearDown(self) -> None:
+        self._patch.stop()
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def test_seed_values_are_sane(self) -> None:
+        """All seed values should be in the expected VND/USD range."""
+        for date_str, value in _USD_VND_HISTORICAL_SEEDS:
+            self.assertGreater(value, Decimal("20000"), f"{date_str} too low")
+            self.assertLess(value, Decimal("35000"), f"{date_str} too high")
+
+    def test_seed_populates_local_store(self) -> None:
+        """Seeding should write values retrievable from the local store."""
+        HistoryRepository._seed_historical_usd_vnd()
+
+        for date_str, expected in _USD_VND_HISTORICAL_SEEDS:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            value = get_value_at("usd_vnd", dt)
+            self.assertEqual(value, expected, f"Seed {date_str} not found")
+
+    @patch("gold_dashboard.repositories.history_repo.requests.post")
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
+    def test_usd_vnd_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
+        """_usd_vnd_changes should call seed and return 4 periods."""
+        import requests.exceptions
+        mock_get.side_effect = requests.exceptions.ConnectionError("down")
+        mock_post.side_effect = requests.exceptions.ConnectionError("down")
+
+        repo = HistoryRepository()
+        result = repo._usd_vnd_changes(Decimal("26500"))
+        self.assertEqual(result.asset_name, "usd_vnd")
+        self.assertEqual(len(result.changes), 4)
+
+    def test_backfill_usd_vnd_persists(self) -> None:
+        """Backfill should write chogia.vn data into the local store."""
+        rates = {
+            "2025-01-15": Decimal("25900"),
+            "2025-01-16": Decimal("25950"),
+        }
+        HistoryRepository._backfill_usd_vnd_history(rates)
+
+        value = get_value_at("usd_vnd", datetime(2025, 1, 15))
+        self.assertEqual(value, Decimal("25900"))
+
+
+class TestBitcoinSeeds(unittest.TestCase):
+    """Test Bitcoin historical seed and backfill methods."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        )
+        self._tmp.close()
+        self._patch = patch(
+            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
+        )
+        self._patch.start()
+
+    def tearDown(self) -> None:
+        self._patch.stop()
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def test_seed_values_are_sane(self) -> None:
+        """All seed values should be in the expected BTC/VND range."""
+        for date_str, value in _BTC_VND_HISTORICAL_SEEDS:
+            self.assertGreater(value, Decimal("100000000000"), f"{date_str} too low")
+            self.assertLess(value, Decimal("5000000000000"), f"{date_str} too high")
+
+    def test_seed_populates_local_store(self) -> None:
+        """Seeding should write values retrievable from the local store."""
+        HistoryRepository._seed_historical_bitcoin()
+
+        for date_str, expected in _BTC_VND_HISTORICAL_SEEDS:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            value = get_value_at("bitcoin", dt)
+            self.assertEqual(value, expected, f"Seed {date_str} not found")
+
+    @patch("gold_dashboard.repositories.history_repo.requests.post")
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
+    def test_bitcoin_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
+        """_bitcoin_changes should call seed and return 4 periods."""
+        import requests.exceptions
+        mock_get.side_effect = requests.exceptions.ConnectionError("down")
+        mock_post.side_effect = requests.exceptions.ConnectionError("down")
+
+        repo = HistoryRepository()
+        result = repo._bitcoin_changes(Decimal("2600000000000"))
+        self.assertEqual(result.asset_name, "bitcoin")
+        self.assertEqual(len(result.changes), 4)
+
+    def test_backfill_bitcoin_persists(self) -> None:
+        """Backfill should write CoinGecko data into the local store."""
+        now = datetime(2025, 6, 1)
+        day_key = int(now.timestamp() / 86400)
+        day_prices = {day_key: Decimal("2500000000000")}
+
+        HistoryRepository._backfill_bitcoin_history(day_prices)
+
+        value = get_value_at("bitcoin", now)
+        self.assertIsNotNone(value)
 
 
 if __name__ == "__main__":

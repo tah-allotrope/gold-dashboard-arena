@@ -83,6 +83,7 @@ _USD_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2025 ---
     ("2025-01-01", Decimal("25800")),   # anchor — start of 2025
     ("2025-02-01", Decimal("25850")),
+    ("2025-02-10", Decimal("25860")),   # covers 1Y lookback
     ("2025-03-01", Decimal("25900")),
     ("2025-04-01", Decimal("26000")),
     ("2025-05-01", Decimal("26150")),
@@ -94,8 +95,10 @@ _USD_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     ("2025-10-28", Decimal("27600")),   # anchor — CafeF free market
     ("2025-11-15", Decimal("27650")),
     ("2025-12-15", Decimal("27700")),
+    ("2026-01-01", Decimal("25790")),
     ("2026-01-15", Decimal("25800")),   # recent — matches ExchangeRate API
-    ("2026-02-01", Decimal("25810")),
+    ("2026-01-28", Decimal("25805")),
+    ("2026-02-04", Decimal("25810")),   # covers 1W lookback
     ("2026-02-10", Decimal("25813")),   # today's live value
 ]
 
@@ -119,6 +122,8 @@ _BTC_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2023 ---
     ("2023-01-01", Decimal("393000000000")),   # anchor — BTC ~$16,688
     ("2023-02-01", Decimal("547000000000")),   # BTC ~$23,000
+    ("2023-02-10", Decimal("530000000000")),   # BTC ~$22,200 — covers 3Y lookback
+    ("2023-02-15", Decimal("570000000000")),   # BTC ~$24,000
     ("2023-03-01", Decimal("540000000000")),   # BTC ~$22,500
     ("2023-04-01", Decimal("672000000000")),   # BTC ~$28,000
     ("2023-05-01", Decimal("648000000000")),   # BTC ~$27,000

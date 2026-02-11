@@ -422,10 +422,10 @@ class TestBitcoinSeeds(unittest.TestCase):
             os.unlink(self._tmp.name)
 
     def test_seed_values_are_sane(self) -> None:
-        """All seed values should be in the expected BTC/VND range."""
+        """All seed values should be in the expected BTC/VND range (hundreds of millions to low billions)."""
         for date_str, value in _BTC_VND_HISTORICAL_SEEDS:
-            self.assertGreater(value, Decimal("100000000000"), f"{date_str} too low")
-            self.assertLess(value, Decimal("5000000000000"), f"{date_str} too high")
+            self.assertGreater(value, Decimal("100000000"), f"{date_str} too low")
+            self.assertLess(value, Decimal("5000000000"), f"{date_str} too high")
 
     def test_seed_populates_local_store(self) -> None:
         """Seeding should write values retrievable from the local store."""

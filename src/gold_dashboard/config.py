@@ -38,6 +38,7 @@ COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&v
 
 # Historical data APIs
 COINGECKO_MARKET_CHART_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=vnd"
+WEBGIA_GOLD_1Y_URL = "https://webgia.com/gia-vang/sjc/bieu-do-1-nam.html"
 
 # Period label -> number of days for historical lookups
 HISTORY_PERIODS = {"1W": 7, "1M": 30, "1Y": 365, "3Y": 1095}

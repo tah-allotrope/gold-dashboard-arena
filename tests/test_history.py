@@ -144,11 +144,13 @@ class TestHistoryRepository(unittest.TestCase):
             vn30=Vn30Index(index_value=Decimal("1300"), source="Test"),
         )
 
+    @patch("gold_dashboard.repositories.history_repo.record_snapshot")
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_fetch_changes_returns_all_assets(
-        self, mock_get: MagicMock, mock_post: MagicMock, mock_local: MagicMock
+        self, mock_get: MagicMock, mock_post: MagicMock, mock_local: MagicMock,
+        mock_record: MagicMock,
     ) -> None:
         """fetch_changes should return a dict with all 4 asset keys."""
         # Make all external calls fail so we fall through to local store
@@ -172,13 +174,66 @@ class TestHistoryRepository(unittest.TestCase):
 
     @patch("gold_dashboard.repositories.history_repo.record_snapshot")
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
-    @patch("gold_dashboard.repositories.history_repo.requests.post")
-    def test_gold_chogia_success(
-        self, mock_post: MagicMock, mock_local: MagicMock, mock_record: MagicMock
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
+    def test_gold_webgia_success(
+        self, mock_get: MagicMock, mock_local: MagicMock, mock_record: MagicMock
     ) -> None:
-        """When chogia.vn returns SJC data, gold 1W/1M should be computed from it."""
+        """When webgia.com returns 1Y of SJC data, gold 1W/1M/1Y should be computed."""
+        import json as _json
         now = datetime.now()
-        # Build fake chogia.vn response with 30 days of SJC prices
+
+        # Build fake webgia.com inline Highcharts data spanning ~1 year.
+        # Real data has ~282 points over 365 days (not every day has a price).
+        # We generate 366 points to ensure the 1Y target (365 days ago) is covered.
+        data_points = []
+        for days_ago in range(366):
+            dt = now - timedelta(days=365 - days_ago)
+            ts_ms = dt.timestamp() * 1000
+            price_millions = 90.0 + days_ago * 0.25  # gradual rise
+            data_points.append([ts_ms, round(price_millions, 1)])
+
+        inline_js = (
+            'var seriesOptions = [{name:"Bán ra",'
+            f'data:{_json.dumps(data_points)}'
+            '}]'
+        )
+        fake_html = f'<html><script>{inline_js}</script></html>'
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.text = fake_html
+        mock_get.return_value = mock_response
+        mock_local.return_value = None
+
+        repo = HistoryRepository()
+        result = repo._gold_changes(Decimal("181000000"))
+
+        self.assertEqual(result.asset_name, "gold")
+        self.assertEqual(len(result.changes), 4)
+
+        change_map = {c.period: c for c in result.changes}
+        self.assertIsNotNone(change_map["1W"].change_percent, "1W should have data")
+        self.assertIsNotNone(change_map["1M"].change_percent, "1M should have data")
+        self.assertIsNotNone(change_map["1Y"].change_percent, "1Y should have data from webgia")
+        # 3Y exceeds webgia range; depends on local store seeds
+        # Backfill should have been called
+        self.assertTrue(mock_record.called)
+
+    @patch("gold_dashboard.repositories.history_repo.record_snapshot")
+    @patch("gold_dashboard.repositories.history_repo.get_value_at")
+    @patch("gold_dashboard.repositories.history_repo.requests.post")
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
+    def test_gold_falls_back_to_chogia(
+        self, mock_get: MagicMock, mock_post: MagicMock,
+        mock_local: MagicMock, mock_record: MagicMock,
+    ) -> None:
+        """When webgia.com fails, gold should fall back to chogia.vn for 1W/1M."""
+        import requests.exceptions
+        # webgia.com fails
+        mock_get.side_effect = requests.exceptions.ConnectionError("webgia down")
+
+        # chogia.vn succeeds with 30 days
+        now = datetime.now()
         entries = []
         for days_ago in range(30):
             dt = now - timedelta(days=29 - days_ago)
@@ -188,35 +243,31 @@ class TestHistoryRepository(unittest.TestCase):
                 "gia_mua": str(158000 + days_ago * 700),
             })
 
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {"success": True, "data": entries}
-        mock_post.return_value = mock_response
+        mock_post_response = MagicMock()
+        mock_post_response.raise_for_status = MagicMock()
+        mock_post_response.json.return_value = {"success": True, "data": entries}
+        mock_post.return_value = mock_post_response
         mock_local.return_value = None
 
         repo = HistoryRepository()
         result = repo._gold_changes(Decimal("181000000"))
 
         self.assertEqual(result.asset_name, "gold")
-        self.assertEqual(len(result.changes), 4)
-
-        # 1W and 1M should have data from chogia.vn (~30 days coverage)
         change_map = {c.period: c for c in result.changes}
-        self.assertIsNotNone(change_map["1W"].change_percent, "1W should have data")
-        self.assertIsNotNone(change_map["1M"].change_percent, "1M should have data")
-        # 1Y and 3Y exceed chogia.vn range, no local store data either
-        self.assertIsNone(change_map["1Y"].change_percent)
-        self.assertIsNone(change_map["3Y"].change_percent)
-        # Backfill should have been called
-        self.assertTrue(mock_record.called)
+        self.assertIsNotNone(change_map["1W"].change_percent, "1W from chogia fallback")
+        self.assertIsNotNone(change_map["1M"].change_percent, "1M from chogia fallback")
 
+    @patch("gold_dashboard.repositories.history_repo.record_snapshot")
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
     @patch("gold_dashboard.repositories.history_repo.requests.post")
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_gold_falls_back_to_local_store(
-        self, mock_post: MagicMock, mock_local: MagicMock
+        self, mock_get: MagicMock, mock_post: MagicMock,
+        mock_local: MagicMock, mock_record: MagicMock,
     ) -> None:
-        """When chogia.vn fails, gold should fall back to local history store."""
+        """When both webgia and chogia fail, gold uses local history store."""
         import requests.exceptions
+        mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
         mock_local.return_value = Decimal("170000000")
 

@@ -3,8 +3,8 @@
 ## Project Snapshot
 - **Project:** Vietnam Gold Dashboard (Firebase Hosting)
 - **Goal:** Scrape Vietnamese gold price (SJC/local) alongside USD/VND (black market), Bitcoin, and VN30 index; render via web dashboard.
-- **Status:** Phase 6 Complete - Historical price changes live for all assets.
-- **Cadence:** 10-minute refresh (per user directive).
+- **Status:** Phase 7 Complete - Frontend bug fixes & consistency pass.
+- **Cadence:** 30-minute refresh (GitHub Actions cron `*/30`).
 
 ## Current Files
 - **Web Dashboard (Firebase):**
@@ -78,7 +78,17 @@
   - Cache-busting bumped to `?v=3` on CSS/JS references.
   - 25/25 tests still passing.
 
+- **Frontend Bug Fixes (Feb 12 2026):**
+  - Fixed footer text: "every 10 minutes" → "every 30 minutes" to match actual GH Actions cron.
+  - Fixed JS `REFRESH_INTERVAL` from 10 min → 30 min (was re-fetching stale `data.json` unnecessarily).
+  - Fixed `FRESHNESS_THRESHOLDS` from `{fresh: 5min, stale: 10min}` → `{fresh: 35min, stale: 65min}` so card borders no longer perpetually show "old" (red).
+  - Fixed arrow direction: BTC/VN30 percentage change now shows `↘` for negative and `↗` for positive (was hardcoded `↗`).
+  - Fixed missing `className` assignment in `updateVn30Card` — VN30 percentage text now correctly colored green/red.
+  - Fixed period selector: clicking 1W/1M/1Y/3Y on BTC/VN30 charts now updates both the chart AND the percentage change text (was only updating chart).
+  - Unified timestamps: removed per-card footer timestamps, keeping only the single header "Updated HH:MM:SS" timestamp for consistency.
+  - Cleaned up dead code: removed unused `formatTimestamp()` function and `.timestamp` CSS rule.
+
 ## Next Steps
 1. (Optional) Add buy/sell spread display for USD black market (chogia.vn provides both `gia_mua` and `gia_ban`).
 2. (Optional) Refine Bitcoin scraper for more reliable VND conversion.
-3. (Optional) Deploy updated dark theme to Firebase.
+3. Deploy latest fixes to Firebase.

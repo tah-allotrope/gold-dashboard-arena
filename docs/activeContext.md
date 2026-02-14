@@ -135,9 +135,15 @@
     - New health/LKG tests in `tests/test_generate_data.py`.
     - Seed-nearest USD fallback test in `tests/test_history.py`.
   - Targeted reliability suite now passing: **35/35** (`python -m unittest tests.test_generate_data tests.test_history tests.test_stock_repo`).
+  - GitHub Actions follow-up (same day):
+    - Observed one CI failure where VN30 temporary fallback status (`Fallback (Scraping Failed)`) marked payload as severe and blocked deploy.
+    - Tuned severity policy in `generate_data.py`: VN30 fallback/short-timeseries remain `degraded` reasons, but no longer set `health.severe_degradation=true` by themselves.
+    - Kept severe failures strict for truly critical payload breakage (e.g., missing required current sections).
+    - Updated regression expectation in `tests/test_generate_data.py` and re-ran targeted suite: **35/35 passing**.
+    - Noted operational constraint: `public/data.json` is gitignored, so CI cannot rely on repo-committed LKG unless a separate persistence strategy is introduced.
 
 ## Next Steps
-1. Push reliability hardening commit(s) to remote and monitor at least 2 cron cycles for stable `health.overall=ok` payloads.
-2. Verify production `public/data.json` no longer degrades VN30 to static fallback when VPS last-close data is available.
+1. Push the latest CI severity-policy tuning commit(s) and watch at least 2 scheduled runs for green deploys.
+2. Confirm production payload keeps `health.severe_degradation=false` during temporary VN30 source outages while still surfacing `degraded` reasons.
 3. (Optional) Add buy/sell spread display for USD black market (chogia.vn provides both `gia_mua` and `gia_ban`).
 4. (Optional) Add a lightweight frontend smoke test to assert degraded-payload/LKG restoration behavior in CI.

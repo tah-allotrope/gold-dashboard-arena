@@ -87,6 +87,7 @@ _USD_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     ("2025-01-01", Decimal("25800")),   # anchor — start of 2025
     ("2025-02-01", Decimal("25850")),
     ("2025-02-10", Decimal("25860")),   # covers 1Y lookback
+    ("2025-02-14", Decimal("25855")),   # exact 1Y anchor for Feb 14 runs
     ("2025-03-01", Decimal("25900")),
     ("2025-04-01", Decimal("26000")),
     ("2025-05-01", Decimal("26150")),
@@ -547,6 +548,10 @@ class HistoryRepository:
             if old_value is None:
                 old_value = get_value_at("usd_vnd", target_date)
 
+            # Seed-nearest fallback for sparse monthly anchors (prevents null 1Y/3Y gaps)
+            if old_value is None:
+                old_value = self._find_seed_rate(_USD_VND_HISTORICAL_SEEDS, target_date)
+
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
@@ -626,6 +631,33 @@ class HistoryRepository:
                 if key in rates:
                     return rates[key]
         return None
+
+    @staticmethod
+    def _find_seed_rate(
+        seeds: List[Tuple[str, Decimal]],
+        target: datetime,
+        max_delta_days: int = 20,
+    ) -> Optional[Decimal]:
+        """Find nearest seed value to target date within an expanded tolerance window."""
+        target_day = target.date()
+        best_value: Optional[Decimal] = None
+        best_delta: Optional[int] = None
+
+        for date_str, value in seeds:
+            try:
+                seed_day = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+
+            delta_days = abs((seed_day - target_day).days)
+            if delta_days > max_delta_days:
+                continue
+
+            if best_delta is None or delta_days < best_delta:
+                best_delta = delta_days
+                best_value = value
+
+        return best_value
 
     # ------------------------------------------------------------------
     # Bitcoin — CoinGecko market_chart API (free tier: max 365 days)

@@ -4,7 +4,12 @@ import unittest
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from gold_dashboard.generate_data import serialize_data, merge_current_into_timeseries
+from gold_dashboard.generate_data import (
+    serialize_data,
+    merge_current_into_timeseries,
+    _assess_payload_health,
+    _restore_degraded_assets_from_lkg,
+)
 from gold_dashboard.models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index
 
 
@@ -87,6 +92,51 @@ class TestMergeCurrentIntoTimeseries(unittest.TestCase):
 
         self.assertEqual(merged["gold"][-1], [today, 179000000.0])
         self.assertNotIn(["2026-02-15", 181000000.0], merged["gold"])
+
+class TestPayloadHealthAndLkg(unittest.TestCase):
+    """Validate payload quality assessment and LKG restoration behavior."""
+
+    def test_assess_payload_health_flags_severe_vn30_degradation(self) -> None:
+        payload = {
+            "gold": {"source": "DOJI"},
+            "usd_vnd": {"sell_rate": 26550.0, "source": "chogia.vn"},
+            "bitcoin": {"source": "CoinMarketCap"},
+            "vn30": {"index_value": 1950.0, "source": "Fallback (Scraping Failed)"},
+            "history": {
+                "vn30": [
+                    {"period": "1W", "change_percent": None},
+                ]
+            },
+            "timeseries": {
+                "vn30": [["2026-02-14", 1950.0]],
+            },
+        }
+
+        health, severe, degraded_assets = _assess_payload_health(payload)
+
+        self.assertTrue(severe)
+        self.assertIn("vn30", degraded_assets)
+        self.assertEqual(health["assets"]["vn30"]["status"], "degraded")
+        self.assertIn("hardcoded_fallback_source", health["assets"]["vn30"]["reasons"])
+
+    def test_restore_degraded_assets_from_lkg_replaces_blocks(self) -> None:
+        payload = {
+            "vn30": {"index_value": 1950.0, "source": "Fallback (Scraping Failed)"},
+            "history": {"vn30": [{"period": "1W", "change_percent": None}]},
+            "timeseries": {"vn30": [["2026-02-14", 1950.0]]},
+        }
+        previous_payload = {
+            "vn30": {"index_value": 2018.64, "source": "VPS"},
+            "history": {"vn30": [{"period": "1W", "change_percent": 1.23}]},
+            "timeseries": {"vn30": [["2026-02-13", 2000.0], ["2026-02-14", 2018.64]]},
+        }
+
+        restored = _restore_degraded_assets_from_lkg(payload, previous_payload, ["vn30"])
+
+        self.assertEqual(restored, ["vn30"])
+        self.assertEqual(payload["vn30"]["source"], "VPS")
+        self.assertEqual(payload["history"]["vn30"][0]["change_percent"], 1.23)
+        self.assertEqual(len(payload["timeseries"]["vn30"]), 2)
 
 
 if __name__ == "__main__":

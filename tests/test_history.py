@@ -410,6 +410,12 @@ class TestUsdVndSeeds(unittest.TestCase):
         value = get_value_at("usd_vnd", datetime(2025, 1, 15))
         self.assertEqual(value, Decimal("25900"))
 
+    def test_find_seed_rate_uses_nearest_anchor_within_window(self) -> None:
+        """Nearest monthly seed should be returned when target date lacks an exact local snapshot."""
+        target = datetime(2025, 2, 20)
+        value = HistoryRepository._find_seed_rate(_USD_VND_HISTORICAL_SEEDS, target)
+        self.assertEqual(value, Decimal("25855"))
+
 
 class TestBitcoinSeeds(unittest.TestCase):
     """Test Bitcoin historical seed and backfill methods."""

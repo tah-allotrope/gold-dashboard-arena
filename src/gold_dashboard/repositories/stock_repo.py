@@ -45,19 +45,55 @@ class StockRepository(Repository[Vn30Index]):
         except (requests.exceptions.RequestException, ValueError, KeyError) as e:
             print(f"VPS API fetch failed: {e}")
 
-        # 3. Try CafeF (Secondary scraping)
+        # 3. Try latest available VPS close (non-trading hours / partial data)
+        try:
+            return self._fetch_from_vps_last_close()
+        except (requests.exceptions.RequestException, ValueError, KeyError) as e:
+            print(f"VPS last-close fallback failed: {e}")
+
+        # 4. Try CafeF (Secondary scraping)
         try:
             return self._fetch_from_cafef()
         except (requests.exceptions.RequestException, ValueError) as e:
             print(f"CafeF fetch failed: {e}")
 
-        # 4. Hardcoded Fallback - ensures UI never shows "--"
+        # 5. Hardcoded Fallback - absolute last resort
         return Vn30Index(
             index_value=Decimal('1950.00'),
             change_percent=Decimal('0.0'),
             source="Fallback (Scraping Failed)",
             timestamp=datetime.now()
         )
+
+    def _fetch_vps_closes(self, days_back: int, retries: int = 3) -> list[Decimal]:
+        """Fetch VN30 closes from VPS with lightweight retry/backoff."""
+        now = int(time.time())
+        from_ts = now - days_back * 86400
+        url = f"{VPS_VN30_API_URL}&from={from_ts}&to={now}"
+
+        last_exc: Optional[Exception] = None
+        for attempt in range(retries):
+            try:
+                response = requests.get(
+                    url,
+                    headers={"User-Agent": HEADERS["User-Agent"]},
+                    timeout=REQUEST_TIMEOUT
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                if data.get('s') != 'ok' or not data.get('c'):
+                    raise ValueError("VPS API returned no VN30 data")
+
+                return [Decimal(str(v)) for v in data['c']]
+            except (requests.exceptions.RequestException, ValueError, KeyError) as e:
+                last_exc = e
+                if attempt < retries - 1:
+                    time.sleep(attempt + 1)
+
+        if last_exc:
+            raise last_exc
+        raise ValueError("VPS API returned no VN30 data")
 
     def _fetch_from_vietstock(self) -> Vn30Index:
         """Fetch from Vietstock."""
@@ -89,24 +125,8 @@ class StockRepository(Repository[Vn30Index]):
         Returns OHLCV data; we use the latest close price and compute
         day-over-day change percent from the two most recent trading days.
         """
-        now = int(time.time())
-        week_ago = now - 7 * 86400
-
-        url = f"{VPS_VN30_API_URL}&from={week_ago}&to={now}"
-        response = requests.get(
-            url,
-            headers={"User-Agent": HEADERS["User-Agent"]},
-            timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-
-        data = response.json()
-
-        if data.get('s') != 'ok' or not data.get('c'):
-            raise ValueError("VPS API returned no VN30 data")
-
-        closes = data['c']
-        latest_close = Decimal(str(closes[-1]))
+        closes = self._fetch_vps_closes(days_back=7)
+        latest_close = closes[-1]
 
         change_percent = None
         if len(closes) >= 2:
@@ -121,6 +141,27 @@ class StockRepository(Repository[Vn30Index]):
             index_value=latest_close,
             change_percent=change_percent,
             source="VPS",
+            timestamp=datetime.now()
+        )
+
+    def _fetch_from_vps_last_close(self) -> Vn30Index:
+        """Fetch latest available VN30 close from a wider VPS window."""
+        closes = self._fetch_vps_closes(days_back=30)
+        latest_close = closes[-1]
+
+        change_percent = None
+        if len(closes) >= 2:
+            prev_close = closes[-2]
+            if prev_close > 0:
+                change_percent = ((latest_close - prev_close) / prev_close * 100).quantize(Decimal('0.01'))
+
+        if latest_close < 100 or latest_close > 10000:
+            raise ValueError(f"VN30 value {latest_close} outside expected range")
+
+        return Vn30Index(
+            index_value=latest_close,
+            change_percent=change_percent,
+            source="VPS (last close)",
             timestamp=datetime.now()
         )
 

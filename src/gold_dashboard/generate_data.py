@@ -9,13 +9,15 @@ import warnings
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, HistoryRepository
 from .models import DashboardData, AssetHistoricalData
 from .history_store import record_snapshot
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+
+REQUIRED_ASSETS = ("gold", "usd_vnd", "bitcoin", "vn30")
 
 
 def decimal_to_float(obj):
@@ -104,6 +106,105 @@ def serialize_data(data: DashboardData) -> dict:
     return result
 
 
+def _load_previous_payload(output_file: Path) -> Optional[Dict[str, Any]]:
+    """Load previously committed data.json as last-known-good candidate."""
+    if not output_file.exists():
+        return None
+
+    try:
+        with open(output_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return None
+
+
+def _assess_payload_health(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, List[str]]:
+    """Assess payload quality and flag severe degradation states."""
+    assets_health: Dict[str, Dict[str, Any]] = {}
+    degraded_assets: List[str] = []
+    severe_degradation = False
+
+    history = payload.get('history', {})
+    timeseries = payload.get('timeseries', {})
+
+    for asset in REQUIRED_ASSETS:
+        reasons: List[str] = []
+        status = 'ok'
+        current = payload.get(asset)
+
+        if current is None:
+            reasons.append('missing_current_section')
+            severe_degradation = True
+        elif asset == 'usd_vnd' and current.get('sell_rate') is None:
+            reasons.append('missing_sell_rate')
+            severe_degradation = True
+        elif asset == 'vn30':
+            source = str(current.get('source') or '').lower()
+            if source.startswith('fallback'):
+                reasons.append('hardcoded_fallback_source')
+                severe_degradation = True
+
+            vn30_series = timeseries.get('vn30') or []
+            if len(vn30_series) < 2:
+                reasons.append('short_timeseries')
+                severe_degradation = True
+
+        asset_history = history.get(asset)
+        if isinstance(asset_history, list):
+            missing_periods = [
+                c.get('period', '?')
+                for c in asset_history
+                if c.get('change_percent') is None
+            ]
+            if missing_periods:
+                reasons.append(f"missing_history:{','.join(missing_periods)}")
+
+        if reasons:
+            status = 'degraded'
+            degraded_assets.append(asset)
+
+        assets_health[asset] = {
+            'status': status,
+            'reasons': reasons,
+            'source': current.get('source') if isinstance(current, dict) else None,
+        }
+
+    overall_status = 'degraded' if degraded_assets else 'ok'
+    health = {
+        'overall': overall_status,
+        'assets': assets_health,
+    }
+    return health, severe_degradation, degraded_assets
+
+
+def _restore_degraded_assets_from_lkg(
+    payload: Dict[str, Any],
+    previous_payload: Dict[str, Any],
+    degraded_assets: List[str],
+) -> List[str]:
+    """Restore degraded asset blocks from previous payload when available."""
+    restored_assets: List[str] = []
+
+    for asset in degraded_assets:
+        if asset not in previous_payload:
+            continue
+
+        payload[asset] = previous_payload[asset]
+        restored_assets.append(asset)
+
+        prev_history = previous_payload.get('history', {})
+        if isinstance(prev_history, dict) and asset in prev_history:
+            payload.setdefault('history', {})
+            payload['history'][asset] = prev_history[asset]
+
+        prev_series = previous_payload.get('timeseries', {})
+        if isinstance(prev_series, dict) and asset in prev_series:
+            payload.setdefault('timeseries', {})
+            payload['timeseries'][asset] = prev_series[asset]
+
+    return restored_assets
+
+
 def merge_current_into_timeseries(
     timeseries: dict,
     data: DashboardData,
@@ -179,6 +280,14 @@ def main():
     print("=" * 60)
     print()
     
+    # Resolve output path early so we can use previous payload as LKG fallback
+    project_root = Path(__file__).resolve().parent.parent.parent
+    public_dir = project_root / 'public'
+    public_dir.mkdir(exist_ok=True)
+    output_file = public_dir / 'data.json'
+
+    previous_payload = _load_previous_payload(output_file)
+
     # Fetch data
     data = fetch_all_data()
     
@@ -211,14 +320,22 @@ def main():
     # Add time-series data for charts
     if timeseries:
         json_data['timeseries'] = merge_current_into_timeseries(timeseries, data)
-    
-    # Ensure public directory exists (relative to project root, not package)
-    project_root = Path(__file__).resolve().parent.parent.parent
-    public_dir = project_root / 'public'
-    public_dir.mkdir(exist_ok=True)
-    
-    # Write to data.json
-    output_file = public_dir / 'data.json'
+
+    # Assess payload health and restore degraded assets from previous payload if needed
+    health, severe_degradation, degraded_assets = _assess_payload_health(json_data)
+    restored_assets: List[str] = []
+    if severe_degradation and previous_payload is not None:
+        restored_assets = _restore_degraded_assets_from_lkg(
+            json_data,
+            previous_payload,
+            degraded_assets,
+        )
+        health, severe_degradation, degraded_assets = _assess_payload_health(json_data)
+
+    health['severe_degradation'] = severe_degradation
+    if restored_assets:
+        health['restored_from_lkg'] = restored_assets
+    json_data['health'] = health
     
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -240,6 +357,8 @@ def main():
             print(f"  Bitcoin: {json_data['bitcoin']['source']}")
         if 'vn30' in json_data:
             print(f"  VN30: {json_data['vn30']['source']}")
+        if restored_assets:
+            print(f"  Restored from LKG: {', '.join(restored_assets)}")
         print("-" * 60)
         print()
         

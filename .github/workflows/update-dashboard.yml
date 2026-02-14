@@ -41,6 +41,30 @@ jobs:
           echo ""
           echo "File size: $(wc -c < public/data.json) bytes"
 
+      - name: Sanity-check payload quality
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          with open("public/data.json", "r", encoding="utf-8") as f:
+            payload = json.load(f)
+
+          required = ["gold", "usd_vnd", "bitcoin", "vn30"]
+          missing = [asset for asset in required if asset not in payload]
+          if missing:
+            print(f"ERROR: missing required assets: {missing}")
+            sys.exit(1)
+
+          health = payload.get("health", {})
+          if health.get("severe_degradation") is True:
+            print("ERROR: payload marked as severe_degradation")
+            print(json.dumps(health, ensure_ascii=False, indent=2))
+            sys.exit(1)
+
+          print("Payload sanity-check passed")
+          PY
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

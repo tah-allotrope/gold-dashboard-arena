@@ -103,21 +103,21 @@ def get_value_at(asset: str, target_date: datetime) -> Optional[Decimal]:
     if not entries:
         return None
 
-    target_str = target_date.strftime("%Y-%m-%d")
+    target_day = target_date.date()
     best_entry: Optional[Dict[str, Any]] = None
-    best_delta: Optional[timedelta] = None
+    best_delta_days: Optional[int] = None
 
     for entry in entries:
         entry_date = datetime.strptime(entry["date"], "%Y-%m-%d")
-        delta = abs(entry_date - target_date)
-        if best_delta is None or delta < best_delta:
-            best_delta = delta
+        delta_days = abs((entry_date.date() - target_day).days)
+        if best_delta_days is None or delta_days < best_delta_days:
+            best_delta_days = delta_days
             best_entry = entry
 
-    if best_entry is None or best_delta is None:
+    if best_entry is None or best_delta_days is None:
         return None
 
-    if best_delta > timedelta(days=MAX_LOOKUP_TOLERANCE_DAYS):
+    if best_delta_days > MAX_LOOKUP_TOLERANCE_DAYS:
         return None
 
     try:

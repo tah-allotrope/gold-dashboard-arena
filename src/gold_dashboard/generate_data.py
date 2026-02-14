@@ -6,9 +6,10 @@ Fetches data from all repositories and exports to public/data.json.
 import json
 import sys
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import Optional
 
 from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, HistoryRepository
 from .models import DashboardData, AssetHistoricalData
@@ -98,9 +99,49 @@ def serialize_data(data: DashboardData) -> dict:
         }
     
     # Add metadata
-    result['generated_at'] = datetime.now().isoformat()
-    
+    result['generated_at'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
     return result
+
+
+def merge_current_into_timeseries(
+    timeseries: dict,
+    data: DashboardData,
+    date_key: Optional[str] = None,
+) -> dict:
+    """Upsert current snapshot values into same-day timeseries points."""
+    today = date_key or datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    merged = {
+        asset: [point for point in points if point[0] <= today]
+        for asset, points in timeseries.items()
+    }
+
+    def upsert(asset_key: str, value: Optional[Decimal]) -> None:
+        if value is None:
+            return
+
+        point = [today, float(value)]
+        points = merged.setdefault(asset_key, [])
+
+        for idx, existing in enumerate(points):
+            if existing[0] == today:
+                points[idx] = point
+                break
+        else:
+            points.append(point)
+
+        points.sort(key=lambda p: p[0])
+
+    if data.gold:
+        upsert('gold', data.gold.sell_price)
+    if data.usd_vnd:
+        upsert('usd_vnd', data.usd_vnd.sell_rate)
+    if data.bitcoin:
+        upsert('bitcoin', data.bitcoin.btc_to_vnd)
+    if data.vn30:
+        upsert('vn30', data.vn30.index_value)
+
+    return merged
 
 
 def _record_current_snapshots(data: DashboardData) -> None:
@@ -169,7 +210,7 @@ def main():
     
     # Add time-series data for charts
     if timeseries:
-        json_data['timeseries'] = timeseries
+        json_data['timeseries'] = merge_current_into_timeseries(timeseries, data)
     
     # Ensure public directory exists (relative to project root, not package)
     project_root = Path(__file__).resolve().parent.parent.parent

@@ -27,6 +27,15 @@ function formatVietnameseNumber(value, decimalPlaces = 0) {
     return formattedInteger;
 }
 
+function parseTimestampToLocalTime(timestamp) {
+    if (!timestamp) return null;
+    const dt = new Date(timestamp);
+    if (isNaN(dt.getTime())) return null;
+    return dt.toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+}
+
 function getFreshnessClass(timestamp) {
     const age = Date.now() - new Date(timestamp).getTime();
     if (age < FRESHNESS_THRESHOLDS.fresh) return 'fresh';
@@ -100,6 +109,45 @@ function updateBtcCard(data, history) {
     }
 
     card.className = 'chart-card ' + getFreshnessClass(data.timestamp);
+}
+
+function resetGoldCard() {
+    const card = document.getElementById('goldCard');
+    document.getElementById('goldSell').textContent = '--';
+    document.getElementById('goldBuy').textContent = '--';
+    document.getElementById('goldSellSmall').textContent = '--';
+    document.getElementById('goldUnit').textContent = 'VND/tael';
+    document.getElementById('goldSource').textContent = 'Unavailable';
+    formatChangeBadge(document.getElementById('goldBadge'), null);
+    card.className = 'metric-card old';
+}
+
+function resetUsdCard() {
+    const card = document.getElementById('usdCard');
+    document.getElementById('usdRate').textContent = '--';
+    document.getElementById('usdSource').textContent = 'Unavailable';
+    formatChangeBadge(document.getElementById('usdBadge'), null);
+    card.className = 'metric-card old';
+}
+
+function resetBtcCard() {
+    const card = document.getElementById('btcCard');
+    document.getElementById('btcRate').textContent = '--';
+    document.getElementById('btcSource').textContent = 'Unavailable';
+    const changeEl = document.getElementById('btcChange');
+    changeEl.textContent = '--';
+    changeEl.className = 'chart-change';
+    card.className = 'chart-card old';
+}
+
+function resetVn30Card() {
+    const card = document.getElementById('vn30Card');
+    document.getElementById('vn30Value').textContent = '--';
+    document.getElementById('vn30Source').textContent = 'Unavailable';
+    const changeEl = document.getElementById('vn30Change');
+    changeEl.textContent = '--';
+    changeEl.className = 'chart-change';
+    card.className = 'chart-card old';
 }
 
 function updateVn30Card(data, history) {
@@ -322,12 +370,28 @@ function initPeriodSelectors() {
 
 // ---- Header update ----
 
-function updateLastUpdateTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-    document.getElementById('lastUpdateTime').textContent = `Updated ${timeString}`;
+function updateLastUpdateTime(data) {
+    const fromGeneratedAt = parseTimestampToLocalTime(data && data.generated_at);
+    if (fromGeneratedAt) {
+        document.getElementById('lastUpdateTime').textContent = `Updated ${fromGeneratedAt}`;
+        return;
+    }
+
+    const candidates = [
+        data && data.gold && data.gold.timestamp,
+        data && data.usd_vnd && data.usd_vnd.timestamp,
+        data && data.bitcoin && data.bitcoin.timestamp,
+        data && data.vn30 && data.vn30.timestamp,
+    ];
+    for (const ts of candidates) {
+        const parsed = parseTimestampToLocalTime(ts);
+        if (parsed) {
+            document.getElementById('lastUpdateTime').textContent = `Updated ${parsed}`;
+            return;
+        }
+    }
+
+    document.getElementById('lastUpdateTime').textContent = 'Updated --';
 }
 
 // ---- Main fetch ----
@@ -348,15 +412,24 @@ async function fetchData() {
 
         // Update metric cards
         if (data.gold) updateGoldCard(data.gold, goldHistory);
+        else resetGoldCard();
+
         if (data.usd_vnd) updateUsdCard(data.usd_vnd, usdHistory);
+        else resetUsdCard();
 
         // Update chart cards
         if (data.bitcoin) updateBtcCard(data.bitcoin, btcHistory);
+        else resetBtcCard();
+
         if (data.vn30) updateVn30Card(data.vn30, vn30History);
+        else resetVn30Card();
 
         // Update history badges on metric cards
         if (goldHistory) updateHistoryBadges('goldHistory', goldHistory);
+        else updateHistoryBadges('goldHistory', []);
+
         if (usdHistory) updateHistoryBadges('usdHistory', usdHistory);
+        else updateHistoryBadges('usdHistory', []);
 
         // Store timeseries and render charts
         if (data.timeseries) {
@@ -367,7 +440,7 @@ async function fetchData() {
             createOrUpdateChart('vn30Chart', 'vn30', vn30Period ? vn30Period.dataset.period : '1M');
         }
 
-        updateLastUpdateTime();
+        updateLastUpdateTime(data);
 
     } catch (error) {
         console.error('Error fetching data:', error);

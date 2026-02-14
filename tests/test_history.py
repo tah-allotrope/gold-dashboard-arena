@@ -119,6 +119,14 @@ class TestHistoryStore(unittest.TestCase):
         value = get_value_at("gold", datetime(2025, 6, 1))
         self.assertIsNone(value)
 
+    def test_get_value_at_uses_calendar_day_tolerance(self) -> None:
+        """A snapshot exactly 3 calendar days away should still match despite time-of-day offset."""
+        record_snapshot("gold", Decimal("66800000"), datetime(2023, 2, 10, 0, 0, 0))
+
+        # Mirrors the CI drift scenario where target time is later in the day.
+        value = get_value_at("gold", datetime(2023, 2, 13, 19, 33, 0))
+        self.assertEqual(value, Decimal("66800000"))
+
     def test_get_value_at_empty(self) -> None:
         """Should return None for an asset with no history."""
         value = get_value_at("gold", datetime(2025, 6, 1))

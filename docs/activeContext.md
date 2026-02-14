@@ -3,7 +3,7 @@
 ## Project Snapshot
 - **Project:** Vietnam Gold Dashboard (Firebase Hosting)
 - **Goal:** Scrape Vietnamese gold price (SJC/local) alongside USD/VND (black market), Bitcoin, and VN30 index; render via web dashboard.
-- **Status:** Phase 8 Complete - Data integrity + production sync pass (Feb 14, 2026).
+- **Status:** Phase 9 In Progress - Reliability hardening pass implemented (Feb 15, 2026).
 - **Cadence:** 30-minute refresh (GitHub Actions cron `*/30`).
 
 ## Current Files
@@ -117,8 +117,27 @@
   - Committed release: `e50bbcb`.
   - Deployed successfully to Firebase Hosting (`gold-dashboard-2026`): https://gold-dashboard-2026.web.app
 
+- **Reliability Hardening (Feb 15 2026):**
+  - Added payload health assessment in `generate_data.py` with per-asset status/reasons and `health.severe_degradation` flag.
+  - Added last-known-good (LKG) restoration in `generate_data.py`: when a run is severely degraded, affected asset blocks (`current + history + timeseries`) are restored from previous `public/data.json` before writing output.
+  - Hardened VN30 current fetch chain in `stock_repo.py`:
+    - Added VPS retries/backoff helper (`_fetch_vps_closes`).
+    - Added `VPS (last close)` fallback path over a wider window before CafeF/static fallback.
+    - Kept hardcoded static VN30 value as absolute final fallback only.
+  - Reduced USD/VND historical null risk in `history_repo.py`:
+    - Added exact 1Y seed anchor (`2025-02-14`) to `_USD_VND_HISTORICAL_SEEDS`.
+    - Added nearest-seed fallback (`_find_seed_rate`) when chogia/local store lookup misses rolling target dates.
+  - Added CI payload quality gate in `.github/workflows/update-dashboard.yml`:
+    - Fails run if any required asset section is missing.
+    - Fails run if payload reports `health.severe_degradation = true`.
+  - Added regression tests:
+    - `tests/test_stock_repo.py` for VN30 fallback-order behavior.
+    - New health/LKG tests in `tests/test_generate_data.py`.
+    - Seed-nearest USD fallback test in `tests/test_history.py`.
+  - Targeted reliability suite now passing: **35/35** (`python -m unittest tests.test_generate_data tests.test_history tests.test_stock_repo`).
+
 ## Next Steps
-1. Push commit `e50bbcb` to remote (if not already pushed) so GitHub Actions history reflects the release.
-2. Monitor next scheduled GH Actions run to confirm generated payload remains consistent over time.
+1. Push reliability hardening commit(s) to remote and monitor at least 2 cron cycles for stable `health.overall=ok` payloads.
+2. Verify production `public/data.json` no longer degrades VN30 to static fallback when VPS last-close data is available.
 3. (Optional) Add buy/sell spread display for USD black market (chogia.vn provides both `gia_mua` and `gia_ban`).
-4. (Optional) Add a lightweight frontend smoke test to assert missing-data reset behavior in CI.
+4. (Optional) Add a lightweight frontend smoke test to assert degraded-payload/LKG restoration behavior in CI.

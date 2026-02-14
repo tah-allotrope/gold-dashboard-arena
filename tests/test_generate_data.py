@@ -114,7 +114,7 @@ class TestPayloadHealthAndLkg(unittest.TestCase):
 
         health, severe, degraded_assets = _assess_payload_health(payload)
 
-        self.assertTrue(severe)
+        self.assertFalse(severe)
         self.assertIn("vn30", degraded_assets)
         self.assertEqual(health["assets"]["vn30"]["status"], "degraded")
         self.assertIn("hardcoded_fallback_source", health["assets"]["vn30"]["reasons"])

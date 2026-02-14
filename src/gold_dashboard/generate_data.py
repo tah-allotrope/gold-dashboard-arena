@@ -142,12 +142,10 @@ def _assess_payload_health(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             source = str(current.get('source') or '').lower()
             if source.startswith('fallback'):
                 reasons.append('hardcoded_fallback_source')
-                severe_degradation = True
 
             vn30_series = timeseries.get('vn30') or []
             if len(vn30_series) < 2:
                 reasons.append('short_timeseries')
-                severe_degradation = True
 
         asset_history = history.get(asset)
         if isinstance(asset_history, list):

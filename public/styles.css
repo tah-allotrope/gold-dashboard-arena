@@ -427,6 +427,14 @@ body {
     .metric-value { font-size: 1.4rem; }
     .chart-price { font-size: 1.25rem; }
     .chart-wrapper { min-height: 120px; }
+
+    .card-history {
+        flex-wrap: wrap;
+    }
+
+    .history-badge {
+        flex: 1 1 calc(33.333% - 0.25rem);
+    }
 }
 
 /* Print */

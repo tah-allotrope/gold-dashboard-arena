@@ -43,7 +43,7 @@ COINGECKO_MARKET_CHART_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/mar
 WEBGIA_GOLD_1Y_URL = "https://webgia.com/gia-vang/sjc/bieu-do-1-nam.html"
 
 # Period label -> number of days for historical lookups
-HISTORY_PERIODS = {"1W": 7, "1M": 30, "1Y": 365, "3Y": 1095}
+HISTORY_PERIODS = {"1D": 1, "1W": 7, "1M": 30, "1Y": 365, "3Y": 1095}
 
 # Approximate premium of VN black market USD/VND over the official bank rate.
 # Applied when chogia.vn (black market source) is unreachable (e.g., from GH Actions).

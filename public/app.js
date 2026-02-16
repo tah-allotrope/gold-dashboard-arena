@@ -5,7 +5,7 @@ const REFRESH_INTERVAL = 30 * 60 * 1000;
 const FRESHNESS_THRESHOLDS = { fresh: 35 * 60 * 1000, stale: 65 * 60 * 1000 };
 
 // Period -> max days for filtering timeseries
-const PERIOD_DAYS = { '1W': 7, '1M': 30, '1Y': 365, '3Y': 1095 };
+const PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '1Y': 365, '3Y': 1095 };
 
 // Store raw timeseries + chart instances globally
 let timeseriesData = {};
@@ -66,10 +66,10 @@ function updateGoldCard(data, history) {
     document.getElementById('goldUnit').textContent = data.unit || 'VND/tael';
     document.getElementById('goldSource').textContent = data.source || '--';
 
-    // 1W change for the top badge
+    // 1D change for the top badge
     const badge = document.getElementById('goldBadge');
-    const weekChange = history && history.find(c => c.period === '1W');
-    formatChangeBadge(badge, weekChange ? weekChange.change_percent : null);
+    const dayChange = history && history.find(c => c.period === '1D');
+    formatChangeBadge(badge, dayChange ? dayChange.change_percent : null);
 
     card.className = 'metric-card ' + getFreshnessClass(data.timestamp);
 }
@@ -81,8 +81,8 @@ function updateUsdCard(data, history) {
     document.getElementById('usdSource').textContent = data.source || '--';
 
     const badge = document.getElementById('usdBadge');
-    const weekChange = history && history.find(c => c.period === '1W');
-    formatChangeBadge(badge, weekChange ? weekChange.change_percent : null);
+    const dayChange = history && history.find(c => c.period === '1D');
+    formatChangeBadge(badge, dayChange ? dayChange.change_percent : null);
 
     card.className = 'metric-card ' + getFreshnessClass(data.timestamp);
 }

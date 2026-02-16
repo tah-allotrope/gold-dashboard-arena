@@ -173,19 +173,20 @@ ASSET_LABELS = {
 
 def create_history_table(history: Dict[str, AssetHistoricalData]) -> Table:
     """
-    Generate a Rich Table showing 1W/1M/1Y/3Y percentage changes per asset.
+    Generate a Rich Table showing 1D/1W/1M/1Y/3Y percentage changes per asset.
 
     Green = positive change, Red = negative change, -- = data unavailable.
     """
     table = Table(title="Historical Changes", title_style="bold magenta")
 
     table.add_column("Asset", style="bold", width=16)
+    table.add_column("1D", justify="right", width=10)
     table.add_column("1W", justify="right", width=12)
     table.add_column("1M", justify="right", width=12)
     table.add_column("1Y", justify="right", width=12)
     table.add_column("3Y", justify="right", width=12)
 
-    period_order = ["1W", "1M", "1Y", "3Y"]
+    period_order = ["1D", "1W", "1M", "1Y", "3Y"]
 
     for asset_key in ["gold", "usd_vnd", "bitcoin", "vn30"]:
         asset_data = history.get(asset_key)

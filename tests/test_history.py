@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
+from gold_dashboard.config import HISTORY_PERIODS
 from gold_dashboard.history_store import (
     record_snapshot,
     get_value_at,
@@ -181,9 +182,13 @@ class TestHistoryRepository(unittest.TestCase):
         self.assertIn("bitcoin", result)
         self.assertIn("vn30", result)
 
-        # Each asset should have 4 periods
+        # Each asset should have all configured periods (including 1D)
         for key in ["gold", "usd_vnd", "bitcoin", "vn30"]:
-            self.assertEqual(len(result[key].changes), 4)
+            self.assertEqual(len(result[key].changes), len(HISTORY_PERIODS))
+            self.assertEqual(
+                [c.period for c in result[key].changes],
+                list(HISTORY_PERIODS.keys()),
+            )
 
     @patch("gold_dashboard.repositories.history_repo.record_snapshot")
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
@@ -222,9 +227,10 @@ class TestHistoryRepository(unittest.TestCase):
         result = repo._gold_changes(Decimal("181000000"))
 
         self.assertEqual(result.asset_name, "gold")
-        self.assertEqual(len(result.changes), 4)
+        self.assertEqual(len(result.changes), len(HISTORY_PERIODS))
 
         change_map = {c.period: c for c in result.changes}
+        self.assertIsNotNone(change_map["1D"].change_percent, "1D should have data")
         self.assertIsNotNone(change_map["1W"].change_percent, "1W should have data")
         self.assertIsNotNone(change_map["1M"].change_percent, "1M should have data")
         self.assertIsNotNone(change_map["1Y"].change_percent, "1Y should have data from webgia")
@@ -288,7 +294,8 @@ class TestHistoryRepository(unittest.TestCase):
         result = repo._gold_changes(Decimal("181000000"))
 
         self.assertEqual(result.asset_name, "gold")
-        self.assertEqual(len(result.changes), 4)
+        self.assertEqual(len(result.changes), len(HISTORY_PERIODS))
+        self.assertIn("1D", [c.period for c in result.changes])
 
         for change in result.changes:
             self.assertIsNotNone(change.change_percent)
@@ -389,7 +396,7 @@ class TestUsdVndSeeds(unittest.TestCase):
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_usd_vnd_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
-        """_usd_vnd_changes should call seed and return 4 periods."""
+        """_usd_vnd_changes should call seed and return all configured periods."""
         import requests.exceptions
         mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
@@ -397,7 +404,8 @@ class TestUsdVndSeeds(unittest.TestCase):
         repo = HistoryRepository()
         result = repo._usd_vnd_changes(Decimal("26500"))
         self.assertEqual(result.asset_name, "usd_vnd")
-        self.assertEqual(len(result.changes), 4)
+        self.assertEqual(len(result.changes), len(HISTORY_PERIODS))
+        self.assertIn("1D", [c.period for c in result.changes])
 
     def test_backfill_usd_vnd_persists(self) -> None:
         """Backfill should write chogia.vn data into the local store."""
@@ -453,7 +461,7 @@ class TestBitcoinSeeds(unittest.TestCase):
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_bitcoin_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
-        """_bitcoin_changes should call seed and return 4 periods."""
+        """_bitcoin_changes should call seed and return all configured periods."""
         import requests.exceptions
         mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
@@ -461,7 +469,8 @@ class TestBitcoinSeeds(unittest.TestCase):
         repo = HistoryRepository()
         result = repo._bitcoin_changes(Decimal("2600000000000"))
         self.assertEqual(result.asset_name, "bitcoin")
-        self.assertEqual(len(result.changes), 4)
+        self.assertEqual(len(result.changes), len(HISTORY_PERIODS))
+        self.assertIn("1D", [c.period for c in result.changes])
 
     def test_backfill_bitcoin_persists(self) -> None:
         """Backfill should write CoinGecko data into the local store."""

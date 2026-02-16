@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional, Dict
 
-from .models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, AssetHistoricalData
+from .models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, LandPrice, AssetHistoricalData
 
 
 def format_vn_number(value: Decimal, decimal_places: int = 0) -> str:
@@ -81,7 +81,7 @@ def create_dashboard_table(data: DashboardData) -> Table:
     """
     Generate Rich Table from DashboardData.
     
-    Displays all 4 data sources with formatting and color-coded freshness.
+    Displays all data sources with formatting and color-coded freshness.
     """
     table = Table(title="Vietnam Gold & Market Dashboard", show_header=False, title_style="bold cyan")
     
@@ -150,6 +150,25 @@ def create_dashboard_table(data: DashboardData) -> Table:
         )
     else:
         table.add_row("📈 VN30 Index", Text("Unavailable (fetching...)", style="red"))
+
+    table.add_row("", "")
+
+    if data.land:
+        color = get_status_color(data.land.timestamp)
+        table.add_row(
+            "🏠 Land",
+            Text(f"Price: {format_vn_number(data.land.price_per_m2)} {data.land.unit}", style=color)
+        )
+        table.add_row(
+            "",
+            Text(f"Location: {data.land.location}", style="dim")
+        )
+        table.add_row(
+            "",
+            Text(f"Source: {data.land.source} | Updated: {format_timestamp(data.land.timestamp)}", style="dim")
+        )
+    else:
+        table.add_row("🏠 Land", Text("Unavailable (fetching...)", style="red"))
     
     return table
 
@@ -168,6 +187,7 @@ ASSET_LABELS = {
     "usd_vnd": "\U0001f4b5 USD/VND",
     "bitcoin": "\u20bf Bitcoin",
     "vn30": "\U0001f4c8 VN30",
+    "land": "\U0001f3e0 Land",
 }
 
 
@@ -188,7 +208,7 @@ def create_history_table(history: Dict[str, AssetHistoricalData]) -> Table:
 
     period_order = ["1D", "1W", "1M", "1Y", "3Y"]
 
-    for asset_key in ["gold", "usd_vnd", "bitcoin", "vn30"]:
+    for asset_key in ["gold", "usd_vnd", "bitcoin", "vn30", "land"]:
         asset_data = history.get(asset_key)
         label = ASSET_LABELS.get(asset_key, asset_key)
 

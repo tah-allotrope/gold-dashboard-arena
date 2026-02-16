@@ -55,11 +55,6 @@ function formatChangeBadge(el, changePercent) {
     el.className = 'change-badge ' + (pct >= 0 ? 'positive' : 'negative');
 }
 
-function formatRatio(value, decimalPlaces = 2) {
-    if (value === null || value === undefined) return '--';
-    return formatVietnameseNumber(value, decimalPlaces);
-}
-
 // ---- Card update functions ----
 
 function updateGoldCard(data, history) {
@@ -155,49 +150,31 @@ function resetVn30Card() {
     card.className = 'chart-card old';
 }
 
-function updateLandBenchmark(data) {
-    const card = document.getElementById('landBenchmarkCard');
-    if (!card || !data) return;
-
-    const range = data.price_range_vnd_per_m2 || {};
-    const comparisons = data.comparisons || {};
-
-    document.getElementById('landLocation').textContent = data.location || '--';
+function updateLandCard(data, history) {
+    if (!data) return;
+    const card = document.getElementById('landCard');
+    document.getElementById('landPrice').textContent = formatVietnameseNumber(data.price_per_m2, 0);
     document.getElementById('landUnit').textContent = data.unit || 'VND/m2';
+    document.getElementById('landLocation').textContent = data.location || '--';
     document.getElementById('landSource').textContent = data.source || '--';
 
-    const minValue = formatVietnameseNumber(range.min, 0);
-    const maxValue = formatVietnameseNumber(range.max, 0);
-    if (minValue === '--' || maxValue === '--') {
-        document.getElementById('landRange').textContent = '--';
-    } else {
-        document.getElementById('landRange').textContent = `${minValue} - ${maxValue}`;
-    }
+    const badge = document.getElementById('landBadge');
+    const dayChange = history && history.find(c => c.period === '1D');
+    formatChangeBadge(badge, dayChange ? dayChange.change_percent : null);
 
-    document.getElementById('landMid').textContent = formatVietnameseNumber(range.mid, 0);
-    document.getElementById('landGoldTaelPerM2').textContent = formatRatio(comparisons.gold_tael_per_m2, 4);
-    document.getElementById('landM2PerGoldTael').textContent = formatRatio(comparisons.m2_per_gold_tael, 4);
-    document.getElementById('landM2PerBtc').textContent = formatRatio(comparisons.m2_per_btc, 2);
-    document.getElementById('landM2Per1MUsd').textContent = formatRatio(comparisons.m2_per_1m_usd, 2);
-
-    card.className = 'land-benchmark-card';
+    card.className = 'metric-card ' + getFreshnessClass(data.timestamp);
 }
 
-function resetLandBenchmark() {
-    const card = document.getElementById('landBenchmarkCard');
+function resetLandCard() {
+    const card = document.getElementById('landCard');
     if (!card) return;
 
+    document.getElementById('landPrice').textContent = '--';
     document.getElementById('landLocation').textContent = '--';
     document.getElementById('landUnit').textContent = 'VND/m2';
     document.getElementById('landSource').textContent = 'Unavailable';
-    document.getElementById('landRange').textContent = '--';
-    document.getElementById('landMid').textContent = '--';
-    document.getElementById('landGoldTaelPerM2').textContent = '--';
-    document.getElementById('landM2PerGoldTael').textContent = '--';
-    document.getElementById('landM2PerBtc').textContent = '--';
-    document.getElementById('landM2Per1MUsd').textContent = '--';
-
-    card.className = 'land-benchmark-card old';
+    formatChangeBadge(document.getElementById('landBadge'), null);
+    card.className = 'metric-card old';
 }
 
 function updateVn30Card(data, history) {
@@ -432,6 +409,7 @@ function updateLastUpdateTime(data) {
         data && data.usd_vnd && data.usd_vnd.timestamp,
         data && data.bitcoin && data.bitcoin.timestamp,
         data && data.vn30 && data.vn30.timestamp,
+        data && data.land && data.land.timestamp,
     ];
     for (const ts of candidates) {
         const parsed = parseTimestampToLocalTime(ts);
@@ -459,6 +437,7 @@ async function fetchData() {
         const usdHistory = data.history && data.history.usd_vnd;
         const btcHistory = data.history && data.history.bitcoin;
         const vn30History = data.history && data.history.vn30;
+        const landHistory = data.history && data.history.land;
 
         // Update metric cards
         if (data.gold) updateGoldCard(data.gold, goldHistory);
@@ -474,8 +453,8 @@ async function fetchData() {
         if (data.vn30) updateVn30Card(data.vn30, vn30History);
         else resetVn30Card();
 
-        if (data.land_benchmark) updateLandBenchmark(data.land_benchmark);
-        else resetLandBenchmark();
+        if (data.land) updateLandCard(data.land, landHistory);
+        else resetLandCard();
 
         // Update history badges on metric cards
         if (goldHistory) updateHistoryBadges('goldHistory', goldHistory);
@@ -483,6 +462,9 @@ async function fetchData() {
 
         if (usdHistory) updateHistoryBadges('usdHistory', usdHistory);
         else updateHistoryBadges('usdHistory', []);
+
+        if (landHistory) updateHistoryBadges('landHistory', landHistory);
+        else updateHistoryBadges('landHistory', []);
 
         // Store timeseries and render charts
         if (data.timeseries) {

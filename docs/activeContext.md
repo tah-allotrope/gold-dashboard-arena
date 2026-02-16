@@ -142,32 +142,26 @@
     - Updated regression expectation in `tests/test_generate_data.py` and re-ran targeted suite: **35/35 passing**.
     - Noted operational constraint: `public/data.json` is gitignored, so CI cannot rely on repo-committed LKG unless a separate persistence strategy is introduced.
 
-- **Land Benchmark Comparison (Feb 16 2026):**
-  - Implemented manual land benchmark for **Hong Bang Street, District 11, Ho Chi Minh City** with range **230,000,000-280,000,000 VND/m2** and midpoint **255,000,000 VND/m2**.
-  - Added benchmark constants in `src/gold_dashboard/config.py`:
-    - `LAND_BENCHMARK_LOCATION`, `LAND_BENCHMARK_UNIT`, `LAND_BENCHMARK_SOURCE`
-    - `LAND_BENCHMARK_MIN_VND_PER_M2`, `LAND_BENCHMARK_MAX_VND_PER_M2`, `LAND_BENCHMARK_MID_VND_PER_M2`
-  - Added serializer support in `src/gold_dashboard/generate_data.py`:
-    - `_build_land_benchmark(data)` with Decimal-safe calculations and null-safe fallbacks.
-    - `land_benchmark` now emitted in `serialize_data()` payload.
-    - Comparison fields include:
-      - `gold_tael_per_m2`
-      - `m2_per_gold_tael`
-      - `m2_per_btc`
-      - `m2_per_1m_usd`
-  - Added web UI render path:
-    - New land benchmark card in `public/index.html`.
-    - New update/reset functions in `public/app.js` for range + comparison metrics.
-    - New responsive styling in `public/styles.css`.
-    - Cache-busting bumped to `styles.css?v=6` and `app.js?v=7`.
-  - Added test-first coverage in `tests/test_generate_data.py` for:
-    - Presence and schema of `land_benchmark`.
-    - Exact min/max/mid serialization values.
-    - Deterministic comparison math assertions.
-    - Null comparison behavior when source assets are unavailable.
-  - Verification completed:
-    - `python -m unittest tests.test_generate_data tests.test_history` -> **35/35 passing**.
-    - `python -m gold_dashboard.generate_data` completed successfully and generated `public/data.json` including `land_benchmark`.
+- **Land First-Class Asset Correction (Feb 16 2026):**
+  - Replaced benchmark-only payload path with a required top-level **`land`** asset block in `generate_data.py` (`price_per_m2`, `location`, `unit`, `source`, `timestamp`).
+  - Added dedicated `LandPrice` model and `LandRepository`:
+    - `src/gold_dashboard/models.py` now includes `LandPrice` and `DashboardData.land`.
+    - `src/gold_dashboard/repositories/land_repo.py` scrapes Hong Bang-related listings from `alonhadat.com.vn` and derives `VND/m2` via parsed `(price, area)` pairs.
+    - Fallback remains resilient via `LAND_FALLBACK_PRICE_PER_M2` to keep payload generation stable.
+  - Extended data pipelines for parity with other assets:
+    - Land fetch + snapshot recording in both `generate_data.py` and `main.py`.
+    - Land history/timeseries support in `history_repo.py` with seed anchors and local-store accumulation.
+    - Health policy updated so missing/invalid land section is treated as severe degradation.
+    - CI payload gate now requires `land` in `.github/workflows/update-dashboard.yml`.
+  - Updated web UI to Land metric-card pattern (not benchmark panel):
+    - `public/index.html`: adds `#landCard` with 1D/1W/1M/1Y/3Y badges.
+    - `public/app.js`: `updateLandCard`/`resetLandCard`, land history badge wiring.
+    - `public/styles.css`: top row adjusted for 3 metric cards; removed legacy benchmark styles.
+    - Cache-busting bumped to `styles.css?v=7` and `app.js?v=8`.
+  - Added/updated tests:
+    - `tests/test_generate_data.py`: land serialization, merge-current timeseries, and health severity checks.
+    - `tests/test_history.py`: land included in required history assets + land seed tests.
+    - `tests/test_land_repo.py`: parser extraction and fallback behavior.
 
 ## Next Steps
 1. Push the latest CI severity-policy tuning commit(s) and watch at least 2 scheduled runs for green deploys.

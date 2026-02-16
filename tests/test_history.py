@@ -26,14 +26,16 @@ from gold_dashboard.models import (
     DashboardData,
     GoldPrice,
     HistoricalChange,
+    LandPrice,
     UsdVndRate,
     Vn30Index,
 )
 from gold_dashboard.repositories.history_repo import (
     HistoryRepository,
     _compute_change_percent,
-    _USD_VND_HISTORICAL_SEEDS,
     _BTC_VND_HISTORICAL_SEEDS,
+    _LAND_HISTORICAL_SEEDS,
+    _USD_VND_HISTORICAL_SEEDS,
 )
 
 
@@ -156,6 +158,11 @@ class TestHistoryRepository(unittest.TestCase):
             usd_vnd=UsdVndRate(sell_rate=Decimal("25800"), source="Test"),
             bitcoin=BitcoinPrice(btc_to_vnd=Decimal("2600000000"), source="Test"),
             vn30=Vn30Index(index_value=Decimal("1300"), source="Test"),
+            land=LandPrice(
+                price_per_m2=Decimal("240000000"),
+                source="Test",
+                location="Hong Bang Street, District 11, Ho Chi Minh City",
+            ),
         )
 
     @patch("gold_dashboard.repositories.history_repo.record_snapshot")
@@ -166,7 +173,7 @@ class TestHistoryRepository(unittest.TestCase):
         self, mock_get: MagicMock, mock_post: MagicMock, mock_local: MagicMock,
         mock_record: MagicMock,
     ) -> None:
-        """fetch_changes should return a dict with all 4 asset keys."""
+        """fetch_changes should return a dict with all required asset keys."""
         # Make all external calls fail so we fall through to local store
         import requests.exceptions
         mock_get.side_effect = requests.exceptions.ConnectionError("network down")
@@ -181,9 +188,10 @@ class TestHistoryRepository(unittest.TestCase):
         self.assertIn("usd_vnd", result)
         self.assertIn("bitcoin", result)
         self.assertIn("vn30", result)
+        self.assertIn("land", result)
 
         # Each asset should have all configured periods (including 1D)
-        for key in ["gold", "usd_vnd", "bitcoin", "vn30"]:
+        for key in ["gold", "usd_vnd", "bitcoin", "vn30", "land"]:
             self.assertEqual(len(result[key].changes), len(HISTORY_PERIODS))
             self.assertEqual(
                 [c.period for c in result[key].changes],
@@ -300,6 +308,32 @@ class TestHistoryRepository(unittest.TestCase):
         for change in result.changes:
             self.assertIsNotNone(change.change_percent)
             self.assertIsNotNone(change.old_value)
+
+    @patch("gold_dashboard.repositories.history_repo.get_value_at")
+    @patch("gold_dashboard.repositories.history_repo.requests.post")
+    @patch("gold_dashboard.repositories.history_repo.requests.get")
+    def test_gold_3y_uses_seed_nearest_when_local_misses(
+        self,
+        mock_get: MagicMock,
+        mock_post: MagicMock,
+        mock_local: MagicMock,
+    ) -> None:
+        """Gold 3Y should still resolve from nearest seeds when APIs/local lookup fail."""
+        import requests.exceptions
+
+        mock_get.side_effect = requests.exceptions.ConnectionError("down")
+        mock_post.side_effect = requests.exceptions.ConnectionError("down")
+        mock_local.return_value = None
+
+        repo = HistoryRepository()
+        with patch("gold_dashboard.repositories.history_repo.datetime", wraps=datetime) as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 2, 16, 12, 0, 0)
+            result = repo._gold_changes(Decimal("179000000"))
+
+        change_map = {c.period: c for c in result.changes}
+        self.assertIsNotNone(change_map["3Y"].old_value)
+        self.assertEqual(change_map["3Y"].old_value, Decimal("66800000"))
+        self.assertIsNotNone(change_map["3Y"].change_percent)
 
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
@@ -482,6 +516,40 @@ class TestBitcoinSeeds(unittest.TestCase):
 
         value = get_value_at("bitcoin", now)
         self.assertIsNotNone(value)
+
+
+class TestLandSeeds(unittest.TestCase):
+    """Test land historical seed and wiring behavior."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        )
+        self._tmp.close()
+        self._patch = patch(
+            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
+        )
+        self._patch.start()
+
+    def tearDown(self) -> None:
+        self._patch.stop()
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def test_seed_values_are_sane(self) -> None:
+        """Land seeds should stay within expected D11 urban range."""
+        for date_str, value in _LAND_HISTORICAL_SEEDS:
+            self.assertGreater(value, Decimal("50000000"), f"{date_str} too low")
+            self.assertLess(value, Decimal("800000000"), f"{date_str} too high")
+
+    def test_seed_populates_local_store(self) -> None:
+        """Land seeding should write values retrievable from local history store."""
+        HistoryRepository._seed_historical_land()
+
+        for date_str, expected in _LAND_HISTORICAL_SEEDS:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            value = get_value_at("land", dt)
+            self.assertEqual(value, expected, f"Seed {date_str} not found")
 
 
 if __name__ == "__main__":

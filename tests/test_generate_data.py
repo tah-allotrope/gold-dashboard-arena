@@ -10,7 +10,7 @@ from gold_dashboard.generate_data import (
     _assess_payload_health,
     _restore_degraded_assets_from_lkg,
 )
-from gold_dashboard.models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index
+from gold_dashboard.models import DashboardData, GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, LandPrice
 
 
 class TestGenerateDataSerialization(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestGenerateDataSerialization(unittest.TestCase):
         self.assertIsNotNone(parsed.tzinfo)
         self.assertEqual(parsed.tzinfo, timezone.utc)
 
-    def test_serialize_data_includes_land_benchmark_with_comparisons(self) -> None:
+    def test_serialize_data_includes_land_asset(self) -> None:
         data = DashboardData(
             gold=GoldPrice(
                 buy_price=Decimal("176000000"),
@@ -49,35 +49,26 @@ class TestGenerateDataSerialization(unittest.TestCase):
                 btc_to_vnd=Decimal("2000000000"),
                 source="CoinMarketCap",
             ),
+            land=LandPrice(
+                price_per_m2=Decimal("184210526"),
+                source="alonhadat.com.vn",
+                location="Hong Bang Street, District 11, Ho Chi Minh City",
+            ),
         )
 
         payload = serialize_data(data)
-        self.assertIn("land_benchmark", payload)
+        self.assertIn("land", payload)
 
-        land = payload["land_benchmark"]
+        land = payload["land"]
         self.assertEqual(land["location"], "Hong Bang Street, District 11, Ho Chi Minh City")
         self.assertEqual(land["unit"], "VND/m2")
-        self.assertEqual(land["source"], "Manual estimate (user-provided)")
+        self.assertEqual(land["source"], "alonhadat.com.vn")
+        self.assertEqual(land["price_per_m2"], 184210526.0)
+        self.assertIn("timestamp", land)
 
-        self.assertEqual(land["price_range_vnd_per_m2"]["min"], 230000000.0)
-        self.assertEqual(land["price_range_vnd_per_m2"]["max"], 280000000.0)
-        self.assertEqual(land["price_range_vnd_per_m2"]["mid"], 255000000.0)
-
-        comparisons = land["comparisons"]
-        self.assertAlmostEqual(comparisons["gold_tael_per_m2"], 1.41666667, places=6)
-        self.assertAlmostEqual(comparisons["m2_per_gold_tael"], 0.70588235, places=6)
-        self.assertAlmostEqual(comparisons["m2_per_btc"], 7.84313725, places=6)
-        self.assertAlmostEqual(comparisons["m2_per_1m_usd"], 98.03921569, places=6)
-
-    def test_serialize_data_land_benchmark_comparisons_are_null_when_assets_missing(self) -> None:
+    def test_serialize_data_omits_land_when_missing(self) -> None:
         payload = serialize_data(DashboardData())
-        self.assertIn("land_benchmark", payload)
-
-        comparisons = payload["land_benchmark"]["comparisons"]
-        self.assertIsNone(comparisons["gold_tael_per_m2"])
-        self.assertIsNone(comparisons["m2_per_gold_tael"])
-        self.assertIsNone(comparisons["m2_per_btc"])
-        self.assertIsNone(comparisons["m2_per_1m_usd"])
+        self.assertNotIn("land", payload)
 
 
 class TestMergeCurrentIntoTimeseries(unittest.TestCase):
@@ -90,6 +81,7 @@ class TestMergeCurrentIntoTimeseries(unittest.TestCase):
             "usd_vnd": [[today, 25813.0]],
             "bitcoin": [[today, 1818718192.33]],
             "vn30": [[today, 2018.64]],
+            "land": [[today, 255000000.0]],
         }
 
         current = DashboardData(
@@ -97,6 +89,11 @@ class TestMergeCurrentIntoTimeseries(unittest.TestCase):
             usd_vnd=UsdVndRate(sell_rate=Decimal("26591.29"), source="ExchangeRate API (est.)"),
             bitcoin=BitcoinPrice(btc_to_vnd=Decimal("1719154966.55"), source="CoinMarketCap"),
             vn30=Vn30Index(index_value=Decimal("2018.64"), source="VPS"),
+            land=LandPrice(
+                price_per_m2=Decimal("184210526"),
+                source="alonhadat.com.vn",
+                location="Hong Bang Street, District 11, Ho Chi Minh City",
+            ),
         )
 
         merged = merge_current_into_timeseries(timeseries, current, date_key=today)
@@ -105,6 +102,7 @@ class TestMergeCurrentIntoTimeseries(unittest.TestCase):
         self.assertEqual(merged["usd_vnd"][-1], [today, 26591.29])
         self.assertEqual(merged["bitcoin"][-1], [today, 1719154966.55])
         self.assertEqual(merged["vn30"][-1], [today, 2018.64])
+        self.assertEqual(merged["land"][-1], [today, 184210526.0])
 
     def test_appends_missing_today_points(self) -> None:
         today = "2026-02-14"
@@ -116,12 +114,18 @@ class TestMergeCurrentIntoTimeseries(unittest.TestCase):
         current = DashboardData(
             gold=GoldPrice(buy_price=Decimal("176000000"), sell_price=Decimal("179000000"), source="DOJI"),
             vn30=Vn30Index(index_value=Decimal("2018.64"), source="VPS"),
+            land=LandPrice(
+                price_per_m2=Decimal("184210526"),
+                source="alonhadat.com.vn",
+                location="Hong Bang Street, District 11, Ho Chi Minh City",
+            ),
         )
 
         merged = merge_current_into_timeseries(timeseries, current, date_key=today)
 
         self.assertEqual(merged["gold"][-1], [today, 179000000.0])
         self.assertEqual(merged["vn30"][-1], [today, 2018.64])
+        self.assertEqual(merged["land"][-1], [today, 184210526.0])
 
     def test_discards_future_points_before_upsert(self) -> None:
         today = "2026-02-14"
@@ -147,6 +151,7 @@ class TestPayloadHealthAndLkg(unittest.TestCase):
             "usd_vnd": {"sell_rate": 26550.0, "source": "chogia.vn"},
             "bitcoin": {"source": "CoinMarketCap"},
             "vn30": {"index_value": 1950.0, "source": "Fallback (Scraping Failed)"},
+            "land": {"price_per_m2": 184210526.0, "source": "alonhadat.com.vn"},
             "history": {
                 "vn30": [
                     {"period": "1W", "change_percent": None},
@@ -163,6 +168,22 @@ class TestPayloadHealthAndLkg(unittest.TestCase):
         self.assertIn("vn30", degraded_assets)
         self.assertEqual(health["assets"]["vn30"]["status"], "degraded")
         self.assertIn("hardcoded_fallback_source", health["assets"]["vn30"]["reasons"])
+
+    def test_assess_payload_health_flags_missing_land_as_severe(self) -> None:
+        payload = {
+            "gold": {"source": "DOJI"},
+            "usd_vnd": {"sell_rate": 26550.0, "source": "chogia.vn"},
+            "bitcoin": {"source": "CoinMarketCap"},
+            "vn30": {"index_value": 2020.12, "source": "VPS"},
+            "history": {},
+            "timeseries": {},
+        }
+
+        health, severe, degraded_assets = _assess_payload_health(payload)
+
+        self.assertTrue(severe)
+        self.assertIn("land", degraded_assets)
+        self.assertIn("missing_current_section", health["assets"]["land"]["reasons"])
 
     def test_restore_degraded_assets_from_lkg_replaces_blocks(self) -> None:
         payload = {

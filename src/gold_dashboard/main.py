@@ -9,7 +9,7 @@ from datetime import datetime
 from rich.console import Console
 from rich.live import Live
 
-from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, HistoryRepository
+from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, LandRepository, HistoryRepository
 from .models import DashboardData
 from .dashboard import create_dashboard_table, create_history_table
 from .history_store import record_snapshot
@@ -51,6 +51,12 @@ def fetch_all_data() -> DashboardData:
         console.log("[green]✓[/green] VN30 index fetched")
     except Exception as e:
         console.log(f"[yellow]⚠[/yellow] VN30 fetch failed: {e}")
+
+    try:
+        data.land = LandRepository().fetch()
+        console.log("[green]✓[/green] Land price fetched")
+    except Exception as e:
+        console.log(f"[yellow]⚠[/yellow] Land fetch failed: {e}")
     
     return data
 
@@ -78,6 +84,8 @@ def main():
             record_snapshot("bitcoin", data.bitcoin.btc_to_vnd)
         if data.vn30:
             record_snapshot("vn30", data.vn30.index_value)
+        if data.land:
+            record_snapshot("land", data.land.price_per_m2)
         
         table = create_dashboard_table(data)
         console.print("\n")

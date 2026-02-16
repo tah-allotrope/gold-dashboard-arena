@@ -7,25 +7,18 @@ import json
 import sys
 import warnings
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .config import (
-    LAND_BENCHMARK_LOCATION,
-    LAND_BENCHMARK_MAX_VND_PER_M2,
-    LAND_BENCHMARK_MID_VND_PER_M2,
-    LAND_BENCHMARK_MIN_VND_PER_M2,
-    LAND_BENCHMARK_SOURCE,
-    LAND_BENCHMARK_UNIT,
-)
-from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, HistoryRepository
+from decimal import Decimal
+
+from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, LandRepository, HistoryRepository
 from .models import DashboardData, AssetHistoricalData
 from .history_store import record_snapshot
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
-REQUIRED_ASSETS = ("gold", "usd_vnd", "bitcoin", "vn30")
+REQUIRED_ASSETS = ("gold", "usd_vnd", "bitcoin", "vn30", "land")
 
 
 def decimal_to_float(obj):
@@ -69,47 +62,14 @@ def fetch_all_data() -> DashboardData:
         print("✓ VN30 index fetched")
     except Exception as e:
         print(f"⚠ VN30 fetch failed: {e}")
+
+    try:
+        data.land = LandRepository().fetch()
+        print("✓ Land price fetched")
+    except Exception as e:
+        print(f"⚠ Land fetch failed: {e}")
     
     return data
-
-
-def _safe_divide(numerator: Optional[Decimal], denominator: Optional[Decimal]) -> Optional[Decimal]:
-    """Safely divide Decimal values and return None on missing/zero denominator."""
-    if numerator is None or denominator is None or denominator == 0:
-        return None
-    return numerator / denominator
-
-
-def _build_land_benchmark(data: DashboardData) -> Dict[str, Any]:
-    """Build static land benchmark block plus derived asset comparisons."""
-    midpoint = LAND_BENCHMARK_MID_VND_PER_M2
-
-    gold_sell_price = data.gold.sell_price if data.gold else None
-    bitcoin_price = data.bitcoin.btc_to_vnd if data.bitcoin else None
-    usd_sell_rate = data.usd_vnd.sell_rate if data.usd_vnd else None
-    one_million_usd_vnd = usd_sell_rate * Decimal("1000000") if usd_sell_rate is not None else None
-
-    gold_tael_per_m2 = _safe_divide(midpoint, gold_sell_price)
-    m2_per_gold_tael = _safe_divide(gold_sell_price, midpoint)
-    m2_per_btc = _safe_divide(bitcoin_price, midpoint)
-    m2_per_1m_usd = _safe_divide(one_million_usd_vnd, midpoint)
-
-    return {
-        'location': LAND_BENCHMARK_LOCATION,
-        'unit': LAND_BENCHMARK_UNIT,
-        'source': LAND_BENCHMARK_SOURCE,
-        'price_range_vnd_per_m2': {
-            'min': float(LAND_BENCHMARK_MIN_VND_PER_M2),
-            'max': float(LAND_BENCHMARK_MAX_VND_PER_M2),
-            'mid': float(LAND_BENCHMARK_MID_VND_PER_M2),
-        },
-        'comparisons': {
-            'gold_tael_per_m2': float(gold_tael_per_m2) if gold_tael_per_m2 is not None else None,
-            'm2_per_gold_tael': float(m2_per_gold_tael) if m2_per_gold_tael is not None else None,
-            'm2_per_btc': float(m2_per_btc) if m2_per_btc is not None else None,
-            'm2_per_1m_usd': float(m2_per_1m_usd) if m2_per_1m_usd is not None else None,
-        },
-    }
 
 
 def serialize_data(data: DashboardData) -> dict:
@@ -147,7 +107,14 @@ def serialize_data(data: DashboardData) -> dict:
             'timestamp': (data.vn30.timestamp.isoformat() + 'Z') if data.vn30.timestamp else None
         }
 
-    result['land_benchmark'] = _build_land_benchmark(data)
+    if data.land:
+        result['land'] = {
+            'price_per_m2': float(data.land.price_per_m2) if data.land.price_per_m2 else None,
+            'location': data.land.location,
+            'unit': data.land.unit,
+            'source': data.land.source,
+            'timestamp': (data.land.timestamp.isoformat() + 'Z') if data.land.timestamp else None,
+        }
 
     # Add metadata
     result['generated_at'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
@@ -183,6 +150,9 @@ def _assess_payload_health(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
 
         if current is None:
             reasons.append('missing_current_section')
+            severe_degradation = True
+        elif asset == 'land' and current.get('price_per_m2') is None:
+            reasons.append('missing_price_per_m2')
             severe_degradation = True
         elif asset == 'usd_vnd' and current.get('sell_rate') is None:
             reasons.append('missing_sell_rate')
@@ -288,6 +258,8 @@ def merge_current_into_timeseries(
         upsert('bitcoin', data.bitcoin.btc_to_vnd)
     if data.vn30:
         upsert('vn30', data.vn30.index_value)
+    if data.land:
+        upsert('land', data.land.price_per_m2)
 
     return merged
 
@@ -302,6 +274,8 @@ def _record_current_snapshots(data: DashboardData) -> None:
         record_snapshot("bitcoin", data.bitcoin.btc_to_vnd)
     if data.vn30:
         record_snapshot("vn30", data.vn30.index_value)
+    if data.land:
+        record_snapshot("land", data.land.price_per_m2)
 
 
 def _serialize_history(history: dict) -> dict:
@@ -404,6 +378,8 @@ def main():
             print(f"  Bitcoin: {json_data['bitcoin']['source']}")
         if 'vn30' in json_data:
             print(f"  VN30: {json_data['vn30']['source']}")
+        if 'land' in json_data:
+            print(f"  Land: {json_data['land']['source']}")
         if restored_assets:
             print(f"  Restored from LKG: {', '.join(restored_assets)}")
         print("-" * 60)

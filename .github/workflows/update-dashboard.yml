@@ -50,7 +50,7 @@ jobs:
           with open("public/data.json", "r", encoding="utf-8") as f:
             payload = json.load(f)
 
-          required = ["gold", "usd_vnd", "bitcoin", "vn30"]
+          required = ["gold", "usd_vnd", "bitcoin", "vn30", "land"]
           missing = [asset for asset in required if asset not in payload]
           if missing:
             print(f"ERROR: missing required assets: {missing}")

@@ -85,13 +85,14 @@ def _deserialize_from_cache(obj: Any) -> Any:
     """Reconstruct dataclass objects from cached JSON data."""
     if isinstance(obj, dict):
         if '__dataclass__' in obj:
-            from .models import GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index
+            from .models import GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, LandPrice
             
             class_map = {
                 'GoldPrice': GoldPrice,
                 'UsdVndRate': UsdVndRate,
                 'BitcoinPrice': BitcoinPrice,
-                'Vn30Index': Vn30Index
+                'Vn30Index': Vn30Index,
+                'LandPrice': LandPrice,
             }
             
             class_name = obj['__dataclass__']

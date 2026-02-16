@@ -61,12 +61,27 @@ class Vn30Index:
 
 
 @dataclass
+class LandPrice:
+    """Model for land price benchmark per square meter."""
+    price_per_m2: Decimal
+    source: str
+    location: str
+    unit: str = "VND/m2"
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self):
+        if self.price_per_m2 <= 0:
+            raise ValueError("Land price must be positive")
+
+
+@dataclass
 class DashboardData:
     """Aggregated model for all dashboard data."""
     gold: Optional[GoldPrice] = None
     usd_vnd: Optional[UsdVndRate] = None
     bitcoin: Optional[BitcoinPrice] = None
     vn30: Optional[Vn30Index] = None
+    land: Optional[LandPrice] = None
 
 
 @dataclass

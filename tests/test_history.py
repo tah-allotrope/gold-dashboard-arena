@@ -24,6 +24,7 @@ from gold_dashboard.models import (
     AssetHistoricalData,
     BitcoinPrice,
     DashboardData,
+    GasolinePrice,
     GoldPrice,
     HistoricalChange,
     LandPrice,
@@ -34,6 +35,7 @@ from gold_dashboard.repositories.history_repo import (
     HistoryRepository,
     _compute_change_percent,
     _BTC_VND_HISTORICAL_SEEDS,
+    _GASOLINE_HISTORICAL_SEEDS,
     _LAND_HISTORICAL_SEEDS,
     _USD_VND_HISTORICAL_SEEDS,
     _VN30_HISTORICAL_SEEDS,
@@ -64,13 +66,9 @@ class TestHistoryStore(unittest.TestCase):
     """Test the local JSON history store (uses a temp file)."""
 
     def setUp(self) -> None:
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        self._tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         self._tmp.close()
-        self._patch = patch(
-            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
-        )
+        self._patch = patch("gold_dashboard.history_store.HISTORY_FILE", self._tmp.name)
         self._patch.start()
 
     def tearDown(self) -> None:
@@ -171,12 +169,16 @@ class TestHistoryRepository(unittest.TestCase):
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_fetch_changes_returns_all_assets(
-        self, mock_get: MagicMock, mock_post: MagicMock, mock_local: MagicMock,
+        self,
+        mock_get: MagicMock,
+        mock_post: MagicMock,
+        mock_local: MagicMock,
         mock_record: MagicMock,
     ) -> None:
         """fetch_changes should return a dict with all required asset keys."""
         # Make all external calls fail so we fall through to local store
         import requests.exceptions
+
         mock_get.side_effect = requests.exceptions.ConnectionError("network down")
         mock_post.side_effect = requests.exceptions.ConnectionError("network down")
         mock_local.return_value = None
@@ -207,6 +209,7 @@ class TestHistoryRepository(unittest.TestCase):
     ) -> None:
         """When webgia.com returns 1Y of SJC data, gold 1W/1M/1Y should be computed."""
         import json as _json
+
         now = datetime.now()
 
         # Build fake webgia.com inline Highcharts data spanning ~1 year.
@@ -220,11 +223,9 @@ class TestHistoryRepository(unittest.TestCase):
             data_points.append([ts_ms, round(price_millions, 1)])
 
         inline_js = (
-            'var seriesOptions = [{name:"Bán ra",'
-            f'data:{_json.dumps(data_points)}'
-            '}]'
+            f'var seriesOptions = [{{name:"Bán ra",data:{_json.dumps(data_points)}}}]'
         )
-        fake_html = f'<html><script>{inline_js}</script></html>'
+        fake_html = f"<html><script>{inline_js}</script></html>"
 
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
@@ -242,7 +243,9 @@ class TestHistoryRepository(unittest.TestCase):
         self.assertIsNotNone(change_map["1D"].change_percent, "1D should have data")
         self.assertIsNotNone(change_map["1W"].change_percent, "1W should have data")
         self.assertIsNotNone(change_map["1M"].change_percent, "1M should have data")
-        self.assertIsNotNone(change_map["1Y"].change_percent, "1Y should have data from webgia")
+        self.assertIsNotNone(
+            change_map["1Y"].change_percent, "1Y should have data from webgia"
+        )
         # 3Y exceeds webgia range; depends on local store seeds
         # Backfill should have been called
         self.assertTrue(mock_record.called)
@@ -252,11 +255,15 @@ class TestHistoryRepository(unittest.TestCase):
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_gold_falls_back_to_chogia(
-        self, mock_get: MagicMock, mock_post: MagicMock,
-        mock_local: MagicMock, mock_record: MagicMock,
+        self,
+        mock_get: MagicMock,
+        mock_post: MagicMock,
+        mock_local: MagicMock,
+        mock_record: MagicMock,
     ) -> None:
         """When webgia.com fails, gold should fall back to chogia.vn for 1W/1M."""
         import requests.exceptions
+
         # webgia.com fails
         mock_get.side_effect = requests.exceptions.ConnectionError("webgia down")
 
@@ -265,11 +272,13 @@ class TestHistoryRepository(unittest.TestCase):
         entries = []
         for days_ago in range(30):
             dt = now - timedelta(days=29 - days_ago)
-            entries.append({
-                "ngay": dt.strftime("%d/%m"),
-                "gia_ban": str(160000 + days_ago * 700),
-                "gia_mua": str(158000 + days_ago * 700),
-            })
+            entries.append(
+                {
+                    "ngay": dt.strftime("%d/%m"),
+                    "gia_ban": str(160000 + days_ago * 700),
+                    "gia_mua": str(158000 + days_ago * 700),
+                }
+            )
 
         mock_post_response = MagicMock()
         mock_post_response.raise_for_status = MagicMock()
@@ -290,11 +299,15 @@ class TestHistoryRepository(unittest.TestCase):
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
     def test_gold_falls_back_to_local_store(
-        self, mock_get: MagicMock, mock_post: MagicMock,
-        mock_local: MagicMock, mock_record: MagicMock,
+        self,
+        mock_get: MagicMock,
+        mock_post: MagicMock,
+        mock_local: MagicMock,
+        mock_record: MagicMock,
     ) -> None:
         """When both webgia and chogia fail, gold uses local history store."""
         import requests.exceptions
+
         mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
         mock_local.return_value = Decimal("170000000")
@@ -327,7 +340,9 @@ class TestHistoryRepository(unittest.TestCase):
         mock_local.return_value = None
 
         repo = HistoryRepository()
-        with patch("gold_dashboard.repositories.history_repo.datetime", wraps=datetime) as mock_dt:
+        with patch(
+            "gold_dashboard.repositories.history_repo.datetime", wraps=datetime
+        ) as mock_dt:
             mock_dt.now.return_value = datetime(2026, 2, 16, 12, 0, 0)
             result = repo._gold_changes(Decimal("179000000"))
 
@@ -366,9 +381,7 @@ class TestHistoryRepository(unittest.TestCase):
 
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
-    def test_vn30_vps_success(
-        self, mock_get: MagicMock, mock_local: MagicMock
-    ) -> None:
+    def test_vn30_vps_success(self, mock_get: MagicMock, mock_local: MagicMock) -> None:
         """When VPS API returns data, VN30 changes should be computed."""
         import time as _time
 
@@ -406,7 +419,9 @@ class TestHistoryRepository(unittest.TestCase):
         mock_local.return_value = None
 
         repo = HistoryRepository()
-        with patch("gold_dashboard.repositories.history_repo.datetime", wraps=datetime) as mock_dt:
+        with patch(
+            "gold_dashboard.repositories.history_repo.datetime", wraps=datetime
+        ) as mock_dt:
             mock_dt.now.return_value = datetime(2026, 2, 16, 12, 0, 0)
             result = repo._vn30_changes(Decimal("1950"))
 
@@ -427,7 +442,9 @@ class TestHistoryRepository(unittest.TestCase):
         mock_local.return_value = None
 
         repo = HistoryRepository()
-        with patch("gold_dashboard.repositories.history_repo.datetime", wraps=datetime) as mock_dt:
+        with patch(
+            "gold_dashboard.repositories.history_repo.datetime", wraps=datetime
+        ) as mock_dt:
             mock_dt.now.return_value = datetime(2026, 2, 16, 12, 0, 0)
             result = repo._vn30_changes(Decimal("1950"))
 
@@ -454,24 +471,21 @@ class TestHistoryRepository(unittest.TestCase):
         HistoryRepository._seed_historical_vn30()
 
         called_days = {
-            call.args[2].strftime("%Y-%m-%d")
-            for call in mock_record.call_args_list
+            call.args[2].strftime("%Y-%m-%d") for call in mock_record.call_args_list
         }
         self.assertNotIn(existing_date_str, called_days)
-        self.assertEqual(len(mock_record.call_args_list), len(_VN30_HISTORICAL_SEEDS) - 1)
+        self.assertEqual(
+            len(mock_record.call_args_list), len(_VN30_HISTORICAL_SEEDS) - 1
+        )
 
 
 class TestUsdVndSeeds(unittest.TestCase):
     """Test USD/VND historical seed and backfill methods."""
 
     def setUp(self) -> None:
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        self._tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         self._tmp.close()
-        self._patch = patch(
-            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
-        )
+        self._patch = patch("gold_dashboard.history_store.HISTORY_FILE", self._tmp.name)
         self._patch.start()
 
     def tearDown(self) -> None:
@@ -496,9 +510,12 @@ class TestUsdVndSeeds(unittest.TestCase):
 
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
-    def test_usd_vnd_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
+    def test_usd_vnd_changes_wires_seeds(
+        self, mock_get: MagicMock, mock_post: MagicMock
+    ) -> None:
         """_usd_vnd_changes should call seed and return all configured periods."""
         import requests.exceptions
+
         mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
 
@@ -530,13 +547,9 @@ class TestBitcoinSeeds(unittest.TestCase):
     """Test Bitcoin historical seed and backfill methods."""
 
     def setUp(self) -> None:
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        self._tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         self._tmp.close()
-        self._patch = patch(
-            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
-        )
+        self._patch = patch("gold_dashboard.history_store.HISTORY_FILE", self._tmp.name)
         self._patch.start()
 
     def tearDown(self) -> None:
@@ -561,9 +574,12 @@ class TestBitcoinSeeds(unittest.TestCase):
 
     @patch("gold_dashboard.repositories.history_repo.requests.post")
     @patch("gold_dashboard.repositories.history_repo.requests.get")
-    def test_bitcoin_changes_wires_seeds(self, mock_get: MagicMock, mock_post: MagicMock) -> None:
+    def test_bitcoin_changes_wires_seeds(
+        self, mock_get: MagicMock, mock_post: MagicMock
+    ) -> None:
         """_bitcoin_changes should call seed and return all configured periods."""
         import requests.exceptions
+
         mock_get.side_effect = requests.exceptions.ConnectionError("down")
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
 
@@ -589,13 +605,9 @@ class TestLandSeeds(unittest.TestCase):
     """Test land historical seed and wiring behavior."""
 
     def setUp(self) -> None:
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        self._tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         self._tmp.close()
-        self._patch = patch(
-            "gold_dashboard.history_store.HISTORY_FILE", self._tmp.name
-        )
+        self._patch = patch("gold_dashboard.history_store.HISTORY_FILE", self._tmp.name)
         self._patch.start()
 
     def tearDown(self) -> None:
@@ -617,6 +629,57 @@ class TestLandSeeds(unittest.TestCase):
             dt = datetime.strptime(date_str, "%Y-%m-%d")
             value = get_value_at("land", dt)
             self.assertEqual(value, expected, f"Seed {date_str} not found")
+
+
+class TestGasolineSeeds(unittest.TestCase):
+    """Test gasoline historical seed consistency and change calculations."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        self._tmp.close()
+        self._patch = patch("gold_dashboard.history_store.HISTORY_FILE", self._tmp.name)
+        self._patch.start()
+
+    def tearDown(self) -> None:
+        self._patch.stop()
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def test_seed_populates_local_store(self) -> None:
+        """Gasoline seeding should write values retrievable from local history store."""
+        HistoryRepository._seed_historical_gasoline()
+
+        for date_str, expected in _GASOLINE_HISTORICAL_SEEDS:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            value = get_value_at("gasoline", dt)
+            self.assertEqual(value, expected, f"Seed {date_str} not found")
+
+    @patch("gold_dashboard.repositories.history_repo.get_value_at")
+    def test_gasoline_changes_do_not_fabricate_large_move_from_conflicting_seed(
+        self, mock_local: MagicMock
+    ) -> None:
+        """Short-period gasoline history should stay flat when current seed matches latest history seed."""
+        mock_local.return_value = None
+
+        repo = HistoryRepository()
+        with patch(
+            "gold_dashboard.repositories.history_repo.datetime", wraps=datetime
+        ) as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 3, 18, 12, 0, 0)
+            result = repo._gasoline_changes(
+                GasolinePrice(
+                    ron95_price=Decimal("25570"),
+                    e5_ron92_price=Decimal("22500"),
+                    source="Manual gasoline seed (seed)",
+                    timestamp=datetime(2026, 3, 1, 0, 0, 0),
+                )
+            )
+
+        change_map = {c.period: c for c in result.changes}
+        self.assertEqual(change_map["1W"].old_value, Decimal("25570"))
+        self.assertEqual(change_map["1W"].change_percent, Decimal("0.00"))
+        self.assertEqual(change_map["1M"].old_value, Decimal("25570"))
+        self.assertEqual(change_map["1M"].change_percent, Decimal("0.00"))
 
 
 if __name__ == "__main__":

@@ -15,23 +15,23 @@ import requests.exceptions
 
 from .config import CACHE_DIR, CACHE_TTL_SECONDS
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def sanitize_vn_number(text: str) -> Optional[Decimal]:
     """
     Convert Vietnamese or international number format to Decimal.
-    
+
     Handles two formats:
     - Vietnamese: '.' for thousands (e.g., 80.000.000), ',' for decimal (e.g., 1.234,56)
     - International: ',' for thousands (e.g., 2,029.81), '.' for decimal
-    
+
     Args:
         text: String containing formatted number
-        
+
     Returns:
         Decimal representation or None if unparseable
-        
+
     Examples:
         >>> sanitize_vn_number("25.500.000,50")
         Decimal('25500000.50')
@@ -42,34 +42,34 @@ def sanitize_vn_number(text: str) -> Optional[Decimal]:
     """
     if not text or not isinstance(text, str):
         return None
-    
+
     try:
         cleaned = text.strip()
-        cleaned = ''.join(c for c in cleaned if c.isdigit() or c in '.,')
-        
+        cleaned = "".join(c for c in cleaned if c.isdigit() or c in ".,")
+
         if not cleaned:
             return None
-        
-        dot_count = cleaned.count('.')
-        comma_count = cleaned.count(',')
-        
+
+        dot_count = cleaned.count(".")
+        comma_count = cleaned.count(",")
+
         if comma_count == 0 and dot_count >= 2:
-            cleaned = cleaned.replace('.', '')
+            cleaned = cleaned.replace(".", "")
         elif comma_count >= 1 and dot_count == 1:
-            if cleaned.rfind(',') < cleaned.rfind('.'):
-                cleaned = cleaned.replace(',', '')
+            if cleaned.rfind(",") < cleaned.rfind("."):
+                cleaned = cleaned.replace(",", "")
             else:
-                cleaned = cleaned.replace(',', '').replace('.', '')
+                cleaned = cleaned.replace(",", "").replace(".", "")
                 return None
         elif comma_count == 1 and dot_count == 0:
-            cleaned = cleaned.replace(',', '.')
+            cleaned = cleaned.replace(",", ".")
         elif comma_count == 0 and dot_count == 1:
             pass
         elif comma_count >= 2:
-            cleaned = cleaned.replace(',', '')
+            cleaned = cleaned.replace(",", "")
         else:
-            cleaned = cleaned.replace('.', '').replace(',', '.')
-        
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+
         return Decimal(cleaned)
     except (InvalidOperation, ValueError):
         return None
@@ -84,29 +84,37 @@ def _get_cache_path(cache_key: str) -> str:
 def _deserialize_from_cache(obj: Any) -> Any:
     """Reconstruct dataclass objects from cached JSON data."""
     if isinstance(obj, dict):
-        if '__dataclass__' in obj:
-            from .models import GoldPrice, UsdVndRate, BitcoinPrice, Vn30Index, LandPrice
-            
+        if "__dataclass__" in obj:
+            from .models import (
+                GoldPrice,
+                UsdVndRate,
+                BitcoinPrice,
+                Vn30Index,
+                LandPrice,
+                GasolinePrice,
+            )
+
             class_map = {
-                'GoldPrice': GoldPrice,
-                'UsdVndRate': UsdVndRate,
-                'BitcoinPrice': BitcoinPrice,
-                'Vn30Index': Vn30Index,
-                'LandPrice': LandPrice,
+                "GoldPrice": GoldPrice,
+                "UsdVndRate": UsdVndRate,
+                "BitcoinPrice": BitcoinPrice,
+                "Vn30Index": Vn30Index,
+                "LandPrice": LandPrice,
+                "GasolinePrice": GasolinePrice,
             }
-            
-            class_name = obj['__dataclass__']
-            data_dict = obj['data']
-            
+
+            class_name = obj["__dataclass__"]
+            data_dict = obj["data"]
+
             for key, value in data_dict.items():
                 data_dict[key] = _deserialize_from_cache(value)
-            
+
             if class_name in class_map:
                 return class_map[class_name](**data_dict)
-        elif '__decimal__' in obj:
-            return Decimal(obj['__decimal__'])
-        elif '__datetime__' in obj:
-            return datetime.fromisoformat(obj['__datetime__'])
+        elif "__decimal__" in obj:
+            return Decimal(obj["__decimal__"])
+        elif "__datetime__" in obj:
+            return datetime.fromisoformat(obj["__datetime__"])
         else:
             return {k: _deserialize_from_cache(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -117,21 +125,21 @@ def _deserialize_from_cache(obj: Any) -> Any:
 def _read_cache(cache_key: str) -> Optional[dict]:
     """Read cache data if it exists and is valid."""
     cache_path = _get_cache_path(cache_key)
-    
+
     if not os.path.exists(cache_path):
         return None
-    
+
     try:
-        with open(cache_path, 'r', encoding='utf-8') as f:
+        with open(cache_path, "r", encoding="utf-8") as f:
             cache_data = json.load(f)
-            
-        timestamp = cache_data.get('timestamp', 0)
+
+        timestamp = cache_data.get("timestamp", 0)
         age_seconds = time.time() - timestamp
-        
+
         if age_seconds < CACHE_TTL_SECONDS:
-            serialized_data = cache_data.get('data')
+            serialized_data = cache_data.get("data")
             return _deserialize_from_cache(serialized_data)
-        
+
         return None
     except (json.JSONDecodeError, IOError):
         return None
@@ -140,31 +148,31 @@ def _read_cache(cache_key: str) -> Optional[dict]:
 def _serialize_for_cache(obj: Any) -> Any:
     """Convert dataclass objects to JSON-serializable format."""
     if is_dataclass(obj):
-        return {
-            '__dataclass__': obj.__class__.__name__,
-            'data': asdict(obj)
-        }
+        return {"__dataclass__": obj.__class__.__name__, "data": asdict(obj)}
     elif isinstance(obj, Decimal):
-        return {'__decimal__': str(obj)}
+        return {"__decimal__": str(obj)}
     elif isinstance(obj, datetime):
-        return {'__datetime__': obj.isoformat()}
+        return {"__datetime__": obj.isoformat()}
     return obj
 
 
 def _write_cache(cache_key: str, data: Any) -> None:
     """Write data to cache with current timestamp."""
     cache_path = _get_cache_path(cache_key)
-    
+
     try:
         serialized_data = _serialize_for_cache(data)
-        
-        cache_data = {
-            'timestamp': time.time(),
-            'data': serialized_data
-        }
-        
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2, default=_serialize_for_cache)
+
+        cache_data = {"timestamp": time.time(), "data": serialized_data}
+
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(
+                cache_data,
+                f,
+                ensure_ascii=False,
+                indent=2,
+                default=_serialize_for_cache,
+            )
     except IOError:
         pass
 
@@ -172,14 +180,14 @@ def _write_cache(cache_key: str, data: Any) -> None:
 def _read_stale_cache(cache_key: str) -> Optional[dict]:
     """Read cache data regardless of TTL (for fallback purposes)."""
     cache_path = _get_cache_path(cache_key)
-    
+
     if not os.path.exists(cache_path):
         return None
-    
+
     try:
-        with open(cache_path, 'r', encoding='utf-8') as f:
+        with open(cache_path, "r", encoding="utf-8") as f:
             cache_data = json.load(f)
-        serialized_data = cache_data.get('data')
+        serialized_data = cache_data.get("data")
         return _deserialize_from_cache(serialized_data)
     except (json.JSONDecodeError, IOError):
         return None
@@ -188,30 +196,31 @@ def _read_stale_cache(cache_key: str) -> Optional[dict]:
 def cached(func: Callable[..., T]) -> Callable[..., T]:
     """
     Decorator that caches function results with TTL-based expiration.
-    
+
     Behavior:
     - Returns cached value if it exists and is < CACHE_TTL_SECONDS old
     - Otherwise calls the wrapped function
     - If function raises requests.exceptions.RequestException, returns stale cache
     - Caches successful results with timestamp
-    
+
     Args:
         func: Function to decorate (should return dataclass model or dict)
-        
+
     Returns:
         Decorated function with caching behavior
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> T:
-        if args and hasattr(args[0], '__class__'):
+        if args and hasattr(args[0], "__class__"):
             cache_key = f"{args[0].__class__.__name__}_{func.__name__}"
         else:
             cache_key = f"{func.__name__}"
-        
+
         cached_data = _read_cache(cache_key)
         if cached_data is not None:
             return cached_data
-        
+
         try:
             result = func(*args, **kwargs)
             _write_cache(cache_key, result)
@@ -221,5 +230,5 @@ def cached(func: Callable[..., T]) -> Callable[..., T]:
             if stale_data is not None:
                 return stale_data
             raise
-    
+
     return wrapper

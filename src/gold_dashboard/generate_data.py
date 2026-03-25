@@ -12,7 +12,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from decimal import Decimal
 
-from .repositories import GoldRepository, CurrencyRepository, CryptoRepository, StockRepository, LandRepository, GasolineRepository, HistoryRepository
+from .repositories import (
+    GoldRepository,
+    CurrencyRepository,
+    CryptoRepository,
+    StockRepository,
+    LandRepository,
+    GasolineRepository,
+    HistoryRepository,
+)
 from .models import DashboardData, AssetHistoricalData
 from .history_store import record_snapshot
 
@@ -31,32 +39,32 @@ def decimal_to_float(obj):
 def fetch_all_data() -> DashboardData:
     """
     Fetch data from all repositories with error handling.
-    
+
     Each repository is tried independently; if one fails, others continue.
     Cache decorator ensures stale data is returned if source is unavailable.
     """
     data = DashboardData()
-    
+
     print("Fetching data from all sources...")
-    
+
     try:
         data.gold = GoldRepository().fetch()
         print("✓ Gold price fetched")
     except Exception as e:
         print(f"⚠ Gold fetch failed: {e}")
-    
+
     try:
         data.usd_vnd = CurrencyRepository().fetch()
         print("✓ USD/VND rate fetched")
     except Exception as e:
         print(f"⚠ USD/VND fetch failed: {e}")
-    
+
     try:
         data.bitcoin = CryptoRepository().fetch()
         print("✓ Bitcoin price fetched")
     except Exception as e:
         print(f"⚠ Bitcoin fetch failed: {e}")
-    
+
     try:
         data.vn30 = StockRepository().fetch()
         print("✓ VN30 index fetched")
@@ -74,65 +82,91 @@ def fetch_all_data() -> DashboardData:
         print("✓ Gasoline price fetched")
     except Exception as e:
         print(f"⚠ Gasoline fetch failed: {e}")
-    
+
     return data
 
 
 def serialize_data(data: DashboardData) -> dict:
     """Convert DashboardData to JSON-serializable dictionary."""
     result = {}
-    
+
     if data.gold:
-        result['gold'] = {
-            'buy_price': float(data.gold.buy_price) if data.gold.buy_price else None,
-            'sell_price': float(data.gold.sell_price) if data.gold.sell_price else None,
-            'unit': data.gold.unit,
-            'source': data.gold.source,
-            'timestamp': (data.gold.timestamp.isoformat() + 'Z') if data.gold.timestamp else None
+        result["gold"] = {
+            "buy_price": float(data.gold.buy_price) if data.gold.buy_price else None,
+            "sell_price": float(data.gold.sell_price) if data.gold.sell_price else None,
+            "unit": data.gold.unit,
+            "source": data.gold.source,
+            "timestamp": (data.gold.timestamp.isoformat() + "Z")
+            if data.gold.timestamp
+            else None,
         }
-    
+
     if data.usd_vnd:
-        result['usd_vnd'] = {
-            'sell_rate': float(data.usd_vnd.sell_rate) if data.usd_vnd.sell_rate else None,
-            'source': data.usd_vnd.source,
-            'timestamp': (data.usd_vnd.timestamp.isoformat() + 'Z') if data.usd_vnd.timestamp else None
+        result["usd_vnd"] = {
+            "sell_rate": float(data.usd_vnd.sell_rate)
+            if data.usd_vnd.sell_rate
+            else None,
+            "source": data.usd_vnd.source,
+            "timestamp": (data.usd_vnd.timestamp.isoformat() + "Z")
+            if data.usd_vnd.timestamp
+            else None,
         }
-    
+
     if data.bitcoin:
-        result['bitcoin'] = {
-            'btc_to_vnd': float(data.bitcoin.btc_to_vnd) if data.bitcoin.btc_to_vnd else None,
-            'source': data.bitcoin.source,
-            'timestamp': (data.bitcoin.timestamp.isoformat() + 'Z') if data.bitcoin.timestamp else None
+        result["bitcoin"] = {
+            "btc_to_vnd": float(data.bitcoin.btc_to_vnd)
+            if data.bitcoin.btc_to_vnd
+            else None,
+            "source": data.bitcoin.source,
+            "timestamp": (data.bitcoin.timestamp.isoformat() + "Z")
+            if data.bitcoin.timestamp
+            else None,
         }
-    
+
     if data.vn30:
-        result['vn30'] = {
-            'index_value': float(data.vn30.index_value) if data.vn30.index_value else None,
-            'change_percent': float(data.vn30.change_percent) if data.vn30.change_percent else None,
-            'source': data.vn30.source,
-            'timestamp': (data.vn30.timestamp.isoformat() + 'Z') if data.vn30.timestamp else None
+        result["vn30"] = {
+            "index_value": float(data.vn30.index_value)
+            if data.vn30.index_value
+            else None,
+            "change_percent": float(data.vn30.change_percent)
+            if data.vn30.change_percent
+            else None,
+            "source": data.vn30.source,
+            "timestamp": (data.vn30.timestamp.isoformat() + "Z")
+            if data.vn30.timestamp
+            else None,
         }
 
     if data.land:
-        result['land'] = {
-            'price_per_m2': float(data.land.price_per_m2) if data.land.price_per_m2 else None,
-            'location': data.land.location,
-            'unit': data.land.unit,
-            'source': data.land.source,
-            'timestamp': (data.land.timestamp.isoformat() + 'Z') if data.land.timestamp else None,
+        result["land"] = {
+            "price_per_m2": float(data.land.price_per_m2)
+            if data.land.price_per_m2
+            else None,
+            "location": data.land.location,
+            "unit": data.land.unit,
+            "source": data.land.source,
+            "timestamp": (data.land.timestamp.isoformat() + "Z")
+            if data.land.timestamp
+            else None,
         }
 
     if data.gasoline:
-        result['gasoline'] = {
-            'ron95_price': float(data.gasoline.ron95_price),
-            'e5_ron92_price': float(data.gasoline.e5_ron92_price) if data.gasoline.e5_ron92_price else None,
-            'unit': data.gasoline.unit,
-            'source': data.gasoline.source,
-            'timestamp': (data.gasoline.timestamp.isoformat() + 'Z') if data.gasoline.timestamp else None,
+        result["gasoline"] = {
+            "ron95_price": float(data.gasoline.ron95_price),
+            "e5_ron92_price": float(data.gasoline.e5_ron92_price)
+            if data.gasoline.e5_ron92_price
+            else None,
+            "unit": data.gasoline.unit,
+            "source": data.gasoline.source,
+            "timestamp": (data.gasoline.timestamp.isoformat() + "Z")
+            if data.gasoline.timestamp
+            else None,
         }
 
     # Add metadata
-    result['generated_at'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+    result["generated_at"] = (
+        datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
 
     return result
 
@@ -143,71 +177,100 @@ def _load_previous_payload(output_file: Path) -> Optional[Dict[str, Any]]:
         return None
 
     try:
-        with open(output_file, 'r', encoding='utf-8') as f:
+        with open(output_file, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError):
         return None
 
 
-def _assess_payload_health(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, List[str]]:
+def _assess_payload_health(
+    payload: Dict[str, Any],
+) -> Tuple[Dict[str, Any], bool, List[str]]:
     """Assess payload quality and flag severe degradation states."""
     assets_health: Dict[str, Dict[str, Any]] = {}
     degraded_assets: List[str] = []
     severe_degradation = False
 
-    history = payload.get('history', {})
-    timeseries = payload.get('timeseries', {})
+    history = payload.get("history", {})
+    timeseries = payload.get("timeseries", {})
 
     for asset in REQUIRED_ASSETS:
         reasons: List[str] = []
-        status = 'ok'
+        status = "ok"
         current = payload.get(asset)
 
         if current is None:
-            reasons.append('missing_current_section')
+            reasons.append("missing_current_section")
             severe_degradation = True
-        elif asset == 'land' and current.get('price_per_m2') is None:
-            reasons.append('missing_price_per_m2')
+        elif asset == "land" and current.get("price_per_m2") is None:
+            reasons.append("missing_price_per_m2")
             severe_degradation = True
-        elif asset == 'gasoline' and current.get('ron95_price') is None:
-            reasons.append('missing_ron95_price')
+        elif asset == "gasoline" and current.get("ron95_price") is None:
+            reasons.append("missing_ron95_price")
             severe_degradation = True
-        elif asset == 'usd_vnd' and current.get('sell_rate') is None:
-            reasons.append('missing_sell_rate')
-            severe_degradation = True
-        elif asset == 'vn30':
-            source = str(current.get('source') or '').lower()
-            if source.startswith('fallback'):
-                reasons.append('hardcoded_fallback_source')
+        elif asset == "gasoline":
+            source = str(current.get("source") or "")
+            timestamp_raw = current.get("timestamp")
 
-            vn30_series = timeseries.get('vn30') or []
+            if GasolineRepository.is_seed_source(source):
+                reasons.append("seed_source")
+                severe_degradation = True
+            elif GasolineRepository.is_fallback_source(source):
+                reasons.append("hardcoded_fallback_source")
+                severe_degradation = True
+
+            if timestamp_raw:
+                try:
+                    parsed_ts = datetime.fromisoformat(
+                        str(timestamp_raw).replace("Z", "+00:00")
+                    )
+                    stale_check_ts = (
+                        parsed_ts.replace(tzinfo=None)
+                        if parsed_ts.tzinfo
+                        else parsed_ts
+                    )
+                    if GasolineRepository.is_stale_timestamp(stale_check_ts):
+                        reasons.append("stale_timestamp")
+                        severe_degradation = True
+                except ValueError:
+                    reasons.append("invalid_timestamp")
+                    severe_degradation = True
+        elif asset == "usd_vnd" and current.get("sell_rate") is None:
+            reasons.append("missing_sell_rate")
+            severe_degradation = True
+        elif asset == "vn30":
+            source = str(current.get("source") or "").lower()
+            if source.startswith("fallback"):
+                reasons.append("hardcoded_fallback_source")
+
+            vn30_series = timeseries.get("vn30") or []
             if len(vn30_series) < 2:
-                reasons.append('short_timeseries')
+                reasons.append("short_timeseries")
 
         asset_history = history.get(asset)
         if isinstance(asset_history, list):
             missing_periods = [
-                c.get('period', '?')
+                c.get("period", "?")
                 for c in asset_history
-                if c.get('change_percent') is None
+                if c.get("change_percent") is None
             ]
             if missing_periods:
                 reasons.append(f"missing_history:{','.join(missing_periods)}")
 
         if reasons:
-            status = 'degraded'
+            status = "degraded"
             degraded_assets.append(asset)
 
         assets_health[asset] = {
-            'status': status,
-            'reasons': reasons,
-            'source': current.get('source') if isinstance(current, dict) else None,
+            "status": status,
+            "reasons": reasons,
+            "source": current.get("source") if isinstance(current, dict) else None,
         }
 
-    overall_status = 'degraded' if degraded_assets else 'ok'
+    overall_status = "degraded" if degraded_assets else "ok"
     health = {
-        'overall': overall_status,
-        'assets': assets_health,
+        "overall": overall_status,
+        "assets": assets_health,
     }
     return health, severe_degradation, degraded_assets
 
@@ -219,23 +282,28 @@ def _restore_degraded_assets_from_lkg(
 ) -> List[str]:
     """Restore degraded asset blocks from previous payload when available."""
     restored_assets: List[str] = []
+    previous_health, _, _ = _assess_payload_health(previous_payload)
+    previous_assets = previous_health.get("assets", {})
 
     for asset in degraded_assets:
         if asset not in previous_payload:
+            continue
+        previous_asset = previous_assets.get(asset, {})
+        if previous_asset.get("status") != "ok":
             continue
 
         payload[asset] = previous_payload[asset]
         restored_assets.append(asset)
 
-        prev_history = previous_payload.get('history', {})
+        prev_history = previous_payload.get("history", {})
         if isinstance(prev_history, dict) and asset in prev_history:
-            payload.setdefault('history', {})
-            payload['history'][asset] = prev_history[asset]
+            payload.setdefault("history", {})
+            payload["history"][asset] = prev_history[asset]
 
-        prev_series = previous_payload.get('timeseries', {})
+        prev_series = previous_payload.get("timeseries", {})
         if isinstance(prev_series, dict) and asset in prev_series:
-            payload.setdefault('timeseries', {})
-            payload['timeseries'][asset] = prev_series[asset]
+            payload.setdefault("timeseries", {})
+            payload["timeseries"][asset] = prev_series[asset]
 
     return restored_assets
 
@@ -246,7 +314,7 @@ def merge_current_into_timeseries(
     date_key: Optional[str] = None,
 ) -> dict:
     """Upsert current snapshot values into same-day timeseries points."""
-    today = date_key or datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    today = date_key or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     merged = {
         asset: [point for point in points if point[0] <= today]
         for asset, points in timeseries.items()
@@ -269,17 +337,17 @@ def merge_current_into_timeseries(
         points.sort(key=lambda p: p[0])
 
     if data.gold:
-        upsert('gold', data.gold.sell_price)
+        upsert("gold", data.gold.sell_price)
     if data.usd_vnd:
-        upsert('usd_vnd', data.usd_vnd.sell_rate)
+        upsert("usd_vnd", data.usd_vnd.sell_rate)
     if data.bitcoin:
-        upsert('bitcoin', data.bitcoin.btc_to_vnd)
+        upsert("bitcoin", data.bitcoin.btc_to_vnd)
     if data.vn30:
-        upsert('vn30', data.vn30.index_value)
+        upsert("vn30", data.vn30.index_value)
     if data.land:
-        upsert('land', data.land.price_per_m2)
+        upsert("land", data.land.price_per_m2)
     if data.gasoline:
-        upsert('gasoline', data.gasoline.ron95_price)
+        upsert("gasoline", data.gasoline.ron95_price)
 
     return merged
 
@@ -296,7 +364,7 @@ def _record_current_snapshots(data: DashboardData) -> None:
         record_snapshot("vn30", data.vn30.index_value)
     if data.land:
         record_snapshot("land", data.land.price_per_m2)
-    if data.gasoline:
+    if data.gasoline and GasolineRepository.should_record_snapshot(data.gasoline):
         record_snapshot("gasoline", data.gasoline.ron95_price)
 
 
@@ -306,12 +374,20 @@ def _serialize_history(history: dict) -> dict:
     for asset_key, asset_data in history.items():
         changes = []
         for c in asset_data.changes:
-            changes.append({
-                'period': c.period,
-                'old_value': float(c.old_value) if c.old_value is not None else None,
-                'new_value': float(c.new_value) if c.new_value is not None else None,
-                'change_percent': float(c.change_percent) if c.change_percent is not None else None,
-            })
+            changes.append(
+                {
+                    "period": c.period,
+                    "old_value": float(c.old_value)
+                    if c.old_value is not None
+                    else None,
+                    "new_value": float(c.new_value)
+                    if c.new_value is not None
+                    else None,
+                    "change_percent": float(c.change_percent)
+                    if c.change_percent is not None
+                    else None,
+                }
+            )
         result[asset_key] = changes
     return result
 
@@ -322,21 +398,21 @@ def main():
     print("Vietnam Gold Dashboard - Data Generator")
     print("=" * 60)
     print()
-    
+
     # Resolve output path early so we can use previous payload as LKG fallback
     project_root = Path(__file__).resolve().parent.parent.parent
-    public_dir = project_root / 'public'
+    public_dir = project_root / "public"
     public_dir.mkdir(exist_ok=True)
-    output_file = public_dir / 'data.json'
+    output_file = public_dir / "data.json"
 
     previous_payload = _load_previous_payload(output_file)
 
     # Fetch data
     data = fetch_all_data()
-    
+
     # Record current values into local history store for future lookups
     _record_current_snapshots(data)
-    
+
     # Fetch historical changes (external APIs + local store)
     history = {}
     try:
@@ -344,7 +420,7 @@ def main():
         print("✓ Historical changes fetched")
     except Exception as e:
         print(f"⚠ Historical changes fetch failed: {e}")
-    
+
     # Fetch raw time-series data for frontend charts
     timeseries = {}
     try:
@@ -352,17 +428,17 @@ def main():
         print("✓ Time-series data fetched")
     except Exception as e:
         print(f"⚠ Time-series fetch failed: {e}")
-    
+
     # Serialize to dictionary
     json_data = serialize_data(data)
-    
+
     # Add historical changes to output
     if history:
-        json_data['history'] = _serialize_history(history)
-    
+        json_data["history"] = _serialize_history(history)
+
     # Add time-series data for charts
     if timeseries:
-        json_data['timeseries'] = merge_current_into_timeseries(timeseries, data)
+        json_data["timeseries"] = merge_current_into_timeseries(timeseries, data)
 
     # Assess payload health and restore degraded assets from previous payload if needed
     health, severe_degradation, degraded_assets = _assess_payload_health(json_data)
@@ -375,42 +451,44 @@ def main():
         )
         health, severe_degradation, degraded_assets = _assess_payload_health(json_data)
 
-    health['severe_degradation'] = severe_degradation
+    health["severe_degradation"] = severe_degradation
     if restored_assets:
-        health['restored_from_lkg'] = restored_assets
-    json_data['health'] = health
-    
+        health["restored_from_lkg"] = restored_assets
+    json_data["health"] = health
+
     try:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, ensure_ascii=False, indent=2, default=decimal_to_float)
-        
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(
+                json_data, f, ensure_ascii=False, indent=2, default=decimal_to_float
+            )
+
         print()
         print(f"✓ Data successfully written to {output_file}")
         print(f"✓ Generated at: {json_data['generated_at']}")
         print()
-        
+
         # Print summary
         print("Data Summary:")
         print("-" * 60)
-        if 'gold' in json_data:
+        if "gold" in json_data:
             print(f"  Gold: {json_data['gold']['source']}")
-        if 'usd_vnd' in json_data:
+        if "usd_vnd" in json_data:
             print(f"  USD/VND: {json_data['usd_vnd']['source']}")
-        if 'bitcoin' in json_data:
+        if "bitcoin" in json_data:
             print(f"  Bitcoin: {json_data['bitcoin']['source']}")
-        if 'vn30' in json_data:
+        if "vn30" in json_data:
             print(f"  VN30: {json_data['vn30']['source']}")
-        if 'land' in json_data:
+        if "land" in json_data:
             print(f"  Land: {json_data['land']['source']}")
-        if 'gasoline' in json_data:
+        if "gasoline" in json_data:
             print(f"  Gasoline: {json_data['gasoline']['source']}")
         if restored_assets:
             print(f"  Restored from LKG: {', '.join(restored_assets)}")
         print("-" * 60)
         print()
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"✗ Error writing data.json: {e}")
         return 1

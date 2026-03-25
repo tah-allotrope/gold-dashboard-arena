@@ -210,3 +210,18 @@
 2. (Optional) Add buy/sell spread display for USD black market (chogia.vn provides both `gia_mua` and `gia_ban`).
 3. (Optional) Add a lightweight frontend smoke test in CI to validate card rendering contract (`gold/usd/land` current + history badges).
 4. (Optional) Add animated neon pulse or particle effects to the dashboard header.
+
+## Active Task - Gasoline stale price fix (Mar 25 2026)
+- [x] Add regression tests for stale gasoline seeds, bad 1W/1M deltas, and payload-health degradation rules.
+- [x] Prevent seed/fallback gasoline values from being recorded as fresh current history snapshots.
+- [x] Mark stale/seed/fallback gasoline payloads as degraded so LKG restoration can protect production output.
+- [x] Align gasoline seed/history constants so short-period badges do not fabricate large moves from contradictory values.
+- [x] Run targeted tests and regenerate `public/data.json` to confirm realistic gasoline source/history output.
+
+## Review / Results
+- Added gasoline regression coverage in `tests/test_history.py`, `tests/test_generate_data.py`, and `tests/test_gasoline_repo.py`.
+- `generate_data.py` now treats gasoline seed/fallback/stale timestamps as degraded, skips snapshot writes for stale non-live gasoline, and refuses to restore a degraded gasoline block from an already-degraded previous payload.
+- `history_repo.py` now computes gasoline short-period changes source-aware: when the current gasoline value is seed/fallback/cached, it avoids polluted local-history snapshots and falls back to curated seeds.
+- `utils.py` cache deserialization now reconstructs `GasolinePrice`, fixing runtime failures when gasoline fetches come from the shared cache.
+- Verified with `python -m unittest tests.test_gasoline_repo tests.test_generate_data tests.test_history` (47/47 passing) and `python -X utf8 -m gold_dashboard.generate_data`.
+- Result: bogus gasoline `1W`/`1M` +13.64% badges are fixed to `0.0`, but the live current source is still the stale seed because both current scrapers still fail to parse from this environment.

@@ -27,29 +27,31 @@ from ..history_store import get_all_entries, get_value_at, record_snapshot
 from ..models import (
     AssetHistoricalData,
     DashboardData,
+    GasolinePrice,
     HistoricalChange,
 )
+from .gasoline_repo import GasolineRepository
 
 # CoinGecko free tier caps historical data at 365 days
 _COINGECKO_MAX_DAYS = 365
 
 # Regex to extract the "Bán ra" (sell) series from webgia.com inline JS.
 # The page embeds Highcharts data like: {name:"Bán ra", data:[[ts,price],...]}
-_WEBGIA_SELL_RE = re.compile(r'name:.B.n ra.,\s*data:(\[\[.*?\]\])')
+_WEBGIA_SELL_RE = re.compile(r"name:.B.n ra.,\s*data:(\[\[.*?\]\])")
 
 # Verified historical SJC sell prices (VND/tael) from Vietnamese news archives.
 # These seed the local history store so 3Y data is available immediately.
 # Sources: VnExpress, Tuoi Tre, CafeF — prices are for SJC 1-lượng sell in HCMC.
 _SJC_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
-    ("2023-01-15", Decimal("66500000")),   # ~66.5M — early 2023 baseline
-    ("2023-02-10", Decimal("66800000")),   # ~66.8M — VnExpress Feb 2023
-    ("2023-02-12", Decimal("66800000")),   # ~66.8M — exact 3Y anchor
-    ("2023-06-01", Decimal("67500000")),   # ~67.5M — stable mid-2023
-    ("2023-10-01", Decimal("69000000")),   # ~69.0M — Q4 2023
-    ("2024-02-10", Decimal("79000000")),   # ~79.0M — VnExpress Feb 2024
-    ("2024-06-01", Decimal("87500000")),   # ~87.5M — post-rally mid-2024
-    ("2024-10-01", Decimal("84000000")),   # ~84.0M — VnExpress Oct 2024
-    ("2025-01-01", Decimal("85000000")),   # ~85.0M — start of 2025
+    ("2023-01-15", Decimal("66500000")),  # ~66.5M — early 2023 baseline
+    ("2023-02-10", Decimal("66800000")),  # ~66.8M — VnExpress Feb 2023
+    ("2023-02-12", Decimal("66800000")),  # ~66.8M — exact 3Y anchor
+    ("2023-06-01", Decimal("67500000")),  # ~67.5M — stable mid-2023
+    ("2023-10-01", Decimal("69000000")),  # ~69.0M — Q4 2023
+    ("2024-02-10", Decimal("79000000")),  # ~79.0M — VnExpress Feb 2024
+    ("2024-06-01", Decimal("87500000")),  # ~87.5M — post-rally mid-2024
+    ("2024-10-01", Decimal("84000000")),  # ~84.0M — VnExpress Oct 2024
+    ("2025-01-01", Decimal("85000000")),  # ~85.0M — start of 2025
 ]
 
 # Verified historical USD/VND *black market* sell rates (monthly density).
@@ -58,36 +60,36 @@ _SJC_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
 _USD_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2023 ---
     ("2023-01-15", Decimal("23850")),
-    ("2023-02-10", Decimal("23880")),   # anchor — VnExpress Feb 2023
-    ("2023-02-13", Decimal("23880")),   # exact 3Y anchor
+    ("2023-02-10", Decimal("23880")),  # anchor — VnExpress Feb 2023
+    ("2023-02-13", Decimal("23880")),  # exact 3Y anchor
     ("2023-03-15", Decimal("23900")),
     ("2023-04-15", Decimal("23920")),
     ("2023-05-15", Decimal("23940")),
-    ("2023-06-01", Decimal("23950")),   # anchor — stable mid-2023
+    ("2023-06-01", Decimal("23950")),  # anchor — stable mid-2023
     ("2023-07-01", Decimal("24000")),
     ("2023-08-01", Decimal("24150")),
     ("2023-09-01", Decimal("24400")),
-    ("2023-10-01", Decimal("24650")),   # anchor — Q4 2023 pressure
+    ("2023-10-01", Decimal("24650")),  # anchor — Q4 2023 pressure
     ("2023-11-01", Decimal("24700")),
     ("2023-12-01", Decimal("24750")),
     # --- 2024 ---
     ("2024-01-01", Decimal("24900")),
-    ("2024-02-10", Decimal("25100")),   # anchor — VnExpress Feb 2024
+    ("2024-02-10", Decimal("25100")),  # anchor — VnExpress Feb 2024
     ("2024-03-01", Decimal("25200")),
     ("2024-04-01", Decimal("25400")),
     ("2024-05-01", Decimal("25650")),
-    ("2024-06-01", Decimal("25850")),   # anchor — mid-2024 USD strength
+    ("2024-06-01", Decimal("25850")),  # anchor — mid-2024 USD strength
     ("2024-07-01", Decimal("25750")),
     ("2024-08-01", Decimal("25650")),
     ("2024-09-01", Decimal("25550")),
-    ("2024-10-01", Decimal("25500")),   # anchor — slight easing Q4
+    ("2024-10-01", Decimal("25500")),  # anchor — slight easing Q4
     ("2024-11-01", Decimal("25550")),
     ("2024-12-01", Decimal("25650")),
     # --- 2025 ---
-    ("2025-01-01", Decimal("25800")),   # anchor — start of 2025
+    ("2025-01-01", Decimal("25800")),  # anchor — start of 2025
     ("2025-02-01", Decimal("25850")),
-    ("2025-02-10", Decimal("25860")),   # covers 1Y lookback
-    ("2025-02-14", Decimal("25855")),   # exact 1Y anchor for Feb 14 runs
+    ("2025-02-10", Decimal("25860")),  # covers 1Y lookback
+    ("2025-02-14", Decimal("25855")),  # exact 1Y anchor for Feb 14 runs
     ("2025-03-01", Decimal("25900")),
     ("2025-04-01", Decimal("26000")),
     ("2025-05-01", Decimal("26150")),
@@ -96,14 +98,14 @@ _USD_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     ("2025-08-01", Decimal("26700")),
     ("2025-09-01", Decimal("26950")),
     ("2025-10-01", Decimal("27200")),
-    ("2025-10-28", Decimal("27600")),   # anchor — CafeF free market
+    ("2025-10-28", Decimal("27600")),  # anchor — CafeF free market
     ("2025-11-15", Decimal("27650")),
     ("2025-12-15", Decimal("27700")),
     ("2026-01-01", Decimal("25790")),
-    ("2026-01-15", Decimal("25800")),   # recent — matches ExchangeRate API
+    ("2026-01-15", Decimal("25800")),  # recent — matches ExchangeRate API
     ("2026-01-28", Decimal("25805")),
-    ("2026-02-04", Decimal("25810")),   # covers 1W lookback
-    ("2026-02-10", Decimal("25813")),   # today's live value
+    ("2026-02-04", Decimal("25810")),  # covers 1W lookback
+    ("2026-02-10", Decimal("25813")),  # today's live value
 ]
 
 # Verified historical BTC/VND prices (monthly density).
@@ -114,29 +116,29 @@ _BTC_VND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     ("2022-01-15", Decimal("1010000000")),  # BTC ~$43,800 × ~23,025
     ("2022-02-10", Decimal("1001600000")),  # anchor — BTC ~$43,500
     ("2022-03-01", Decimal("990000000")),
-    ("2022-04-01", Decimal("920000000")),   # BTC ~$40,000
-    ("2022-05-01", Decimal("830000000")),   # BTC ~$36,000 (pre-Luna)
-    ("2022-06-01", Decimal("696000000")),   # anchor — BTC ~$30,000
-    ("2022-07-01", Decimal("530000000")),   # BTC ~$22,500
-    ("2022-08-01", Decimal("555000000")),   # BTC ~$23,500
-    ("2022-09-01", Decimal("500000000")),   # BTC ~$21,000
-    ("2022-10-01", Decimal("479000000")),   # anchor — BTC ~$20,000
-    ("2022-11-01", Decimal("485000000")),   # BTC ~$20,200
-    ("2022-12-01", Decimal("410000000")),   # BTC ~$17,200 (FTX fallout)
+    ("2022-04-01", Decimal("920000000")),  # BTC ~$40,000
+    ("2022-05-01", Decimal("830000000")),  # BTC ~$36,000 (pre-Luna)
+    ("2022-06-01", Decimal("696000000")),  # anchor — BTC ~$30,000
+    ("2022-07-01", Decimal("530000000")),  # BTC ~$22,500
+    ("2022-08-01", Decimal("555000000")),  # BTC ~$23,500
+    ("2022-09-01", Decimal("500000000")),  # BTC ~$21,000
+    ("2022-10-01", Decimal("479000000")),  # anchor — BTC ~$20,000
+    ("2022-11-01", Decimal("485000000")),  # BTC ~$20,200
+    ("2022-12-01", Decimal("410000000")),  # BTC ~$17,200 (FTX fallout)
     # --- 2023 ---
-    ("2023-01-01", Decimal("393000000")),   # anchor — BTC ~$16,688
-    ("2023-02-01", Decimal("547000000")),   # BTC ~$23,000
-    ("2023-02-10", Decimal("530000000")),   # BTC ~$22,200 — covers 3Y lookback
-    ("2023-02-15", Decimal("570000000")),   # BTC ~$24,000
-    ("2023-03-01", Decimal("540000000")),   # BTC ~$22,500
-    ("2023-04-01", Decimal("672000000")),   # BTC ~$28,000
-    ("2023-05-01", Decimal("648000000")),   # BTC ~$27,000
-    ("2023-06-01", Decimal("648000000")),   # anchor — BTC ~$27,000
-    ("2023-07-01", Decimal("720000000")),   # BTC ~$30,000
-    ("2023-08-01", Decimal("696000000")),   # BTC ~$29,000
-    ("2023-09-01", Decimal("648000000")),   # BTC ~$27,000
-    ("2023-10-01", Decimal("672000000")),   # anchor — BTC ~$28,000
-    ("2023-11-01", Decimal("840000000")),   # BTC ~$35,000
+    ("2023-01-01", Decimal("393000000")),  # anchor — BTC ~$16,688
+    ("2023-02-01", Decimal("547000000")),  # BTC ~$23,000
+    ("2023-02-10", Decimal("530000000")),  # BTC ~$22,200 — covers 3Y lookback
+    ("2023-02-15", Decimal("570000000")),  # BTC ~$24,000
+    ("2023-03-01", Decimal("540000000")),  # BTC ~$22,500
+    ("2023-04-01", Decimal("672000000")),  # BTC ~$28,000
+    ("2023-05-01", Decimal("648000000")),  # BTC ~$27,000
+    ("2023-06-01", Decimal("648000000")),  # anchor — BTC ~$27,000
+    ("2023-07-01", Decimal("720000000")),  # BTC ~$30,000
+    ("2023-08-01", Decimal("696000000")),  # BTC ~$29,000
+    ("2023-09-01", Decimal("648000000")),  # BTC ~$27,000
+    ("2023-10-01", Decimal("672000000")),  # anchor — BTC ~$28,000
+    ("2023-11-01", Decimal("840000000")),  # BTC ~$35,000
     ("2023-12-01", Decimal("1020000000")),  # BTC ~$42,000
     # --- 2024 ---
     ("2024-01-01", Decimal("1068000000")),  # anchor — BTC ~$43,599
@@ -177,7 +179,7 @@ _LAND_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
 # Monthly spacing ensures every lookup falls within MAX_LOOKUP_TOLERANCE_DAYS (3).
 _GASOLINE_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2023 ---
-    ("2023-02-13", Decimal("23010")),   # exact 3Y anchor; ~23,010 VND/L from VnExpress
+    ("2023-02-13", Decimal("23010")),  # exact 3Y anchor; ~23,010 VND/L from VnExpress
     ("2023-03-01", Decimal("22800")),
     ("2023-04-01", Decimal("22770")),
     ("2023-05-01", Decimal("22580")),
@@ -191,7 +193,7 @@ _GASOLINE_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2024 ---
     ("2024-01-01", Decimal("21660")),
     ("2024-02-01", Decimal("21800")),
-    ("2024-02-10", Decimal("21800")),   # 1Y anchor
+    ("2024-02-10", Decimal("21800")),  # 1Y anchor
     ("2024-03-01", Decimal("22050")),
     ("2024-04-01", Decimal("22180")),
     ("2024-05-01", Decimal("22050")),
@@ -205,7 +207,7 @@ _GASOLINE_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2025 ---
     ("2025-01-01", Decimal("20930")),
     ("2025-02-01", Decimal("21250")),
-    ("2025-02-14", Decimal("21250")),   # exact 1Y anchor
+    ("2025-02-14", Decimal("21250")),  # exact 1Y anchor
     ("2025-03-01", Decimal("21470")),
     ("2025-04-01", Decimal("21600")),
     ("2025-05-01", Decimal("21800")),
@@ -219,7 +221,7 @@ _GASOLINE_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     # --- 2026 ---
     ("2026-01-01", Decimal("22500")),
     ("2026-02-01", Decimal("22500")),
-    ("2026-03-01", Decimal("22500")),
+    ("2026-03-01", Decimal("25570")),
 ]
 
 # Verified historical VN30 index closes (monthly density).
@@ -288,7 +290,9 @@ class HistoryRepository:
     single failure never blocks the rest.
     """
 
-    def fetch_changes(self, current_data: DashboardData) -> Dict[str, AssetHistoricalData]:
+    def fetch_changes(
+        self, current_data: DashboardData
+    ) -> Dict[str, AssetHistoricalData]:
         """
         Build a dict mapping asset keys to their historical change data.
 
@@ -316,7 +320,7 @@ class HistoryRepository:
             result["land"] = self._land_changes(current_data.land.price_per_m2)
 
         if current_data.gasoline:
-            result["gasoline"] = self._gasoline_changes(current_data.gasoline.ron95_price)
+            result["gasoline"] = self._gasoline_changes(current_data.gasoline)
 
         return result
 
@@ -570,7 +574,9 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 
@@ -644,8 +650,8 @@ class HistoryRepository:
         rates: Dict[str, Decimal] = {}
 
         for entry in data["data"]:
-            raw_date = entry.get("ngay", "")       # e.g. "12/01"
-            sell_str = entry.get("gia_ban", "")     # e.g. "181030"
+            raw_date = entry.get("ngay", "")  # e.g. "12/01"
+            sell_str = entry.get("gia_ban", "")  # e.g. "181030"
             if not raw_date or not sell_str:
                 continue
 
@@ -744,7 +750,9 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 
@@ -811,7 +819,9 @@ class HistoryRepository:
                 continue
 
     @staticmethod
-    def _find_chogia_rate(rates: Dict[str, Decimal], target: datetime) -> Optional[Decimal]:
+    def _find_chogia_rate(
+        rates: Dict[str, Decimal], target: datetime
+    ) -> Optional[Decimal]:
         """Find the chogia.vn rate closest to *target* within ±3 days."""
         for offset in range(4):
             for sign in (0, 1, -1):
@@ -901,7 +911,9 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 
@@ -960,7 +972,9 @@ class HistoryRepository:
                 continue
 
     @staticmethod
-    def _find_closest_price(day_prices: Dict[int, Decimal], target: datetime) -> Optional[Decimal]:
+    def _find_closest_price(
+        day_prices: Dict[int, Decimal], target: datetime
+    ) -> Optional[Decimal]:
         """Find the price entry closest to *target* within ±3 days."""
         target_day = int(target.timestamp() / 86400)
         for offset in range(4):
@@ -1012,7 +1026,9 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 
@@ -1039,13 +1055,15 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 
         return AssetHistoricalData(asset_name="land", changes=changes)
 
-    def _gasoline_changes(self, current_value: Decimal) -> AssetHistoricalData:
+    def _gasoline_changes(self, current_price: GasolinePrice) -> AssetHistoricalData:
         """Compute RON 95-III % change for each period using local store + seeds.
         Calls _seed_historical_gasoline() first to ensure 3Y coverage.
         For each period: tries get_value_at("gasoline", target_date), then
@@ -1054,12 +1072,17 @@ class HistoryRepository:
         Returns AssetHistoricalData(asset_name="gasoline", changes=[...])."""
         changes = []
         now = datetime.now()
+        current_value = current_price.ron95_price
+        use_local_history = GasolineRepository.is_realtime_source(current_price.source)
 
         self._seed_historical_gasoline()
 
         for label, days in HISTORY_PERIODS.items():
             target_date = now - timedelta(days=days)
-            old_value = get_value_at("gasoline", target_date)
+            old_value: Optional[Decimal] = None
+
+            if use_local_history:
+                old_value = get_value_at("gasoline", target_date)
 
             if old_value is None:
                 max_delta = 45 if label == "3Y" else 20
@@ -1072,7 +1095,9 @@ class HistoryRepository:
             change = HistoricalChange(period=label, new_value=current_value)
             if old_value is not None:
                 change.old_value = old_value
-                change.change_percent = _compute_change_percent(old_value, current_value)
+                change.change_percent = _compute_change_percent(
+                    old_value, current_value
+                )
 
             changes.append(change)
 

@@ -26,28 +26,40 @@ SJC_URL = "https://sjc.com.vn/gia-vang-online"
 MIHONG_URL = "https://www.mihong.vn/en/vietnam-gold-pricings"
 EGCURRENCY_URL = "https://egcurrency.com/en/currency/USD-to-VND/blackMarket"
 
-DOJI_API_URL = "http://giavang.doji.vn/api/giavang/?api_key=258fbd2a72ce8481089d88c678e9fe4f"
+DOJI_API_URL = (
+    "http://giavang.doji.vn/api/giavang/?api_key=258fbd2a72ce8481089d88c678e9fe4f"
+)
 CHOGIA_AJAX_URL = "https://chogia.vn/wp-admin/admin-ajax.php"
 VIETSTOCK_URL = "https://banggia.vietstock.vn/bang-gia/vn30"
 CAFEF_URL = "https://s.cafef.vn/hastc/VN30-INDEX.chn"
 
 # Fallback APIs (international-friendly, work from any IP)
 OPEN_ER_API_URL = "https://open.er-api.com/v6/latest/USD"
-VPS_VN30_API_URL = "https://histdatafeed.vps.com.vn/tradingview/history?symbol=VN30&resolution=D"
+VPS_VN30_API_URL = (
+    "https://histdatafeed.vps.com.vn/tradingview/history?symbol=VN30&resolution=D"
+)
 
 COINMARKETCAP_BTC_VND_URL = "https://coinmarketcap.com/currencies/bitcoin/btc/vnd/"
-COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=vnd"
+COINGECKO_API_URL = (
+    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=vnd"
+)
 
 # Historical data APIs
-COINGECKO_MARKET_CHART_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=vnd"
+COINGECKO_MARKET_CHART_URL = (
+    "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=vnd"
+)
 WEBGIA_GOLD_1Y_URL = "https://webgia.com/gia-vang/sjc/bieu-do-1-nam.html"
 
 # Period label -> number of days for historical lookups
 HISTORY_PERIODS = {"1D": 1, "1W": 7, "1M": 30, "1Y": 365, "3Y": 1095}
 
 # Land price source + fallback configuration (Hong Bang, District 11, HCMC)
-ALONHADAT_Q11_URL = "https://alonhadat.com.vn/nha-dat/can-ban/nha-mat-tien/ho-chi-minh/142/quan-11.html"
-HOMEDY_HONG_BANG_URL = "https://homedy.com/ban-nha-mat-pho-duong-hong-bang-quan-11-tp-ho-chi-minh"
+ALONHADAT_Q11_URL = (
+    "https://alonhadat.com.vn/nha-dat/can-ban/nha-mat-tien/ho-chi-minh/142/quan-11.html"
+)
+HOMEDY_HONG_BANG_URL = (
+    "https://homedy.com/ban-nha-mat-pho-duong-hong-bang-quan-11-tp-ho-chi-minh"
+)
 LAND_LOCATION = "Hong Bang Street, District 11, Ho Chi Minh City"
 LAND_UNIT = "VND/m2"
 LAND_FALLBACK_PRICE_PER_M2 = Decimal("255000000")
@@ -69,8 +81,9 @@ CACHE_DIR = ".cache"
 XANGDAU_URL = "https://xangdau.net/"
 PETROLIMEX_URL = "https://www.petrolimex.com.vn/nd/gia-ban-le-xang-dau.html"
 GASOLINE_UNIT = "VND/liter"
-GASOLINE_FALLBACK_RON95_PRICE = Decimal("25570")   # RON 95-III fallback, VND/liter
-GASOLINE_FALLBACK_E5_RON92_PRICE = Decimal("22500") # E5 RON 92 fallback, VND/liter
-GASOLINE_MIN_VALID_VND = Decimal("10000")            # 10,000 VND/liter minimum
-GASOLINE_MAX_VALID_VND = Decimal("50000")            # 50,000 VND/liter maximum
+GASOLINE_FALLBACK_RON95_PRICE = Decimal("25570")  # RON 95-III fallback, VND/liter
+GASOLINE_FALLBACK_E5_RON92_PRICE = Decimal("22500")  # E5 RON 92 fallback, VND/liter
+GASOLINE_MIN_VALID_VND = Decimal("10000")  # 10,000 VND/liter minimum
+GASOLINE_MAX_VALID_VND = Decimal("50000")  # 50,000 VND/liter maximum
+GASOLINE_MAX_AGE_DAYS = 10  # official repricing cadence target
 GASOLINE_LAST_GOOD_SCRAPE_FILE = "data/last_gasoline_scrape.json"

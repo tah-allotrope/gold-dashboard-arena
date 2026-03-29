@@ -222,7 +222,10 @@ _GASOLINE_HISTORICAL_SEEDS: List[Tuple[str, Decimal]] = [
     ("2026-01-01", Decimal("22500")),
     ("2026-02-01", Decimal("22500")),
     ("2026-03-01", Decimal("25570")),
-]
+    ("2026-03-11", Decimal("28500")),
+    ("2026-03-21", Decimal("29957")),
+    ("2026-03-26", Decimal("24332")),
+    ]
 
 # Verified historical VN30 index closes (monthly density).
 # Anchors from Vietstock, CafeF, VPS historical data.

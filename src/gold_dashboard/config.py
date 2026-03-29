@@ -80,9 +80,10 @@ CACHE_DIR = ".cache"
 # Gasoline price sources (Vietnam retail, government-regulated)
 XANGDAU_URL = "https://xangdau.net/"
 PETROLIMEX_URL = "https://www.petrolimex.com.vn/nd/gia-ban-le-xang-dau.html"
+PVOIL_URL = "https://www.pvoil.com.vn/"
 GASOLINE_UNIT = "VND/liter"
-GASOLINE_FALLBACK_RON95_PRICE = Decimal("25570")  # RON 95-III fallback, VND/liter
-GASOLINE_FALLBACK_E5_RON92_PRICE = Decimal("22500")  # E5 RON 92 fallback, VND/liter
+GASOLINE_FALLBACK_RON95_PRICE = Decimal("24332")  # RON 95-III fallback, VND/liter
+GASOLINE_FALLBACK_E5_RON92_PRICE = Decimal("23326")  # E5 RON 92 fallback, VND/liter
 GASOLINE_MIN_VALID_VND = Decimal("10000")  # 10,000 VND/liter minimum
 GASOLINE_MAX_VALID_VND = Decimal("50000")  # 50,000 VND/liter maximum
 GASOLINE_MAX_AGE_DAYS = 10  # official repricing cadence target

@@ -655,31 +655,36 @@ class TestGasolineSeeds(unittest.TestCase):
             self.assertEqual(value, expected, f"Seed {date_str} not found")
 
     @patch("gold_dashboard.repositories.history_repo.get_value_at")
-    def test_gasoline_changes_do_not_fabricate_large_move_from_conflicting_seed(
+    def test_gasoline_changes_with_recent_seeds(
         self, mock_local: MagicMock
     ) -> None:
-        """Short-period gasoline history should stay flat when current seed matches latest history seed."""
+        """Short-period gasoline history should reflect the actual seed changes without fabricating large conflicting moves."""
         mock_local.return_value = None
 
         repo = HistoryRepository()
         with patch(
             "gold_dashboard.repositories.history_repo.datetime", wraps=datetime
         ) as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 3, 18, 12, 0, 0)
+            # Set to a few days after the latest adjustment
+            mock_dt.now.return_value = datetime(2026, 3, 29, 12, 0, 0)
             result = repo._gasoline_changes(
                 GasolinePrice(
-                    ron95_price=Decimal("25570"),
-                    e5_ron92_price=Decimal("22500"),
+                    ron95_price=Decimal("24332"),
+                    e5_ron92_price=Decimal("23326"),
                     source="Manual gasoline seed (seed)",
-                    timestamp=datetime(2026, 3, 1, 0, 0, 0),
+                    timestamp=datetime(2026, 3, 26, 0, 0, 0),
                 )
             )
 
         change_map = {c.period: c for c in result.changes}
-        self.assertEqual(change_map["1W"].old_value, Decimal("25570"))
-        self.assertEqual(change_map["1W"].change_percent, Decimal("0.00"))
+        
+        # 1W ago = 2026-03-22 -> nearest seed is 2026-03-21 (29957)
+        self.assertEqual(change_map["1W"].old_value, Decimal("29957"))
+        self.assertEqual(change_map["1W"].change_percent, _compute_change_percent(Decimal("29957"), Decimal("24332")))
+        
+        # 1M ago = 2026-02-27 -> nearest seed is 2026-03-01 (25570)
         self.assertEqual(change_map["1M"].old_value, Decimal("25570"))
-        self.assertEqual(change_map["1M"].change_percent, Decimal("0.00"))
+        self.assertEqual(change_map["1M"].change_percent, _compute_change_percent(Decimal("25570"), Decimal("24332")))
 
 
 if __name__ == "__main__":

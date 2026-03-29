@@ -23,6 +23,7 @@ from ..config import (
     GASOLINE_UNIT,
     HEADERS,
     PETROLIMEX_URL,
+    PVOIL_URL,
     REQUEST_TIMEOUT,
     XANGDAU_URL,
 )
@@ -34,11 +35,11 @@ class GasolineRepository(Repository[GasolinePrice]):
     """Fetches Vietnam retail gasoline prices with a 4-step fallback chain."""
 
     _GASOLINE_SEED: ClassVar[Dict[str, str]] = {
-        "ron95_price": "25570",
-        "e5_ron92_price": "22500",
+        "ron95_price": "24332",
+        "e5_ron92_price": "23326",
         "source": "Manual gasoline seed",
         "unit": "VND/liter",
-        "timestamp": "2026-03-01T00:00:00",
+        "timestamp": "2026-03-26T00:00:00",
     }
 
     @staticmethod
@@ -101,7 +102,13 @@ class GasolineRepository(Repository[GasolinePrice]):
         except Exception as e:
             print(f"  [Gasoline] petrolimex.com.vn failed: {e}")
 
-        # Step 3: Local persistence file
+        # Step 3: pvoil.com.vn
+        try:
+            return self._fetch_from_pvoil()
+        except Exception as e:
+            print(f"  [Gasoline] pvoil.com.vn failed: {e}")
+
+        # Step 4: Local persistence file
         try:
             cached_price = self._load_last_good_scrape()
             if cached_price:
@@ -171,6 +178,36 @@ class GasolineRepository(Repository[GasolinePrice]):
             ron95_price=ron95_price,
             e5_ron92_price=e5_ron92_price,
             source="Petrolimex",
+            unit=GASOLINE_UNIT,
+        )
+        self._persist_last_good_scrape(price)
+        return price
+
+    def _fetch_from_pvoil(self) -> GasolinePrice:
+        """GET pvoil.com.vn retail price page, parse table/text for RON 95
+        and E5 RON 92 prices, validate, persist, and return GasolinePrice.
+        Raises ValueError if no valid RON 95-III price found.
+        Raises requests.exceptions.RequestException on network failure."""
+        response = requests.get(
+            PVOIL_URL, headers=HEADERS, timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text(separator=" ", strip=True)
+
+        ron95_price = self._extract_grade_price(text, "RON 95-III")
+        if not ron95_price:
+            ron95_price = self._extract_grade_price(text, "RON 95")
+            if not ron95_price:
+                raise ValueError("No valid RON 95-III price found on pvoil.com.vn")
+
+        e5_ron92_price = self._extract_grade_price(text, "E5 RON 92")
+
+        price = GasolinePrice(
+            ron95_price=ron95_price,
+            e5_ron92_price=e5_ron92_price,
+            source="pvoil.com.vn",
             unit=GASOLINE_UNIT,
         )
         self._persist_last_good_scrape(price)
